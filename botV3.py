@@ -758,7 +758,9 @@ class AccountChecker:
                 return ", ".join(bind_types)
             return "None"
         except:
-return "N/A"
+            
+         return 
+        "N/A"
 
     def check_ban_status(self, jwt_token, session):
         """Check if account is banned with faster timeout."""
