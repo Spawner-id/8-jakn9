@@ -758,7 +758,6 @@ class AccountChecker:
                 return ", ".join(bind_types)
             return "None"
         except:
-            ```python
 return "N/A"
 
     def check_ban_status(self, jwt_token, session):
