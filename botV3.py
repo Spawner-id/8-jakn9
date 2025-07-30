@@ -1498,7 +1498,7 @@ class TelegramBot:
                 f"Could not validate your API key: {str(e)}\n"
                 f"Please try again later.",
                 parse_mode='Markdown'
-            )```python
+            )
             return
 
     async def balance_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
