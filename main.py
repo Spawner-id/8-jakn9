@@ -11,7 +11,7 @@ import os
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 # Import and run the bot
-from botV2 import main
+from botV3 import main
 
 if __name__ == "__main__":
     main()
