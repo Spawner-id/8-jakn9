@@ -43,7 +43,7 @@ class BotConfig:
 
     # Bot settings
     BOT_TOKEN = os.getenv('BOT_TOKEN',
-                          '8342752247:AAGV9CmGu-qd7wCdclWNSbO_qmzA7hgfYmk')
+                          '7670163739:AAG0g85NtS_DL6o_uYSiWH5OMK0Q7VoSoR8')
 
     # Admin settings
     ADMIN_IDS = []
