@@ -474,7 +474,7 @@ class AccountChecker:
             {"min": 130, "max": 134, "rank": "Mythic II"},
             {"min": 135, "max": 139, "rank": "Mythic I"},
             {"min": 140, "max": 199, "rank": "Mythical Honor"},
-            {"min": 200, "max": 999, "rank": "Mythical Glory"}
+            {"min": 200, "max": 999, "rank": "Mythical Glory"},
             {"min": 1000, "max": 9999, "rank": "Mythical Immortal"}
         ]
 
