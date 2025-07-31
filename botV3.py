@@ -1797,7 +1797,7 @@ class TelegramBot:
                 from concurrent.futures import as_completed, TimeoutError as FutureTimeoutError
 
                 completed_count = 0
-                timeout_duration = max(30, len(accounts) * 0.5)  # Minimum 2 minutes, or 1.5 seconds per account
+                timeout_duration = max(1, len(accounts) * 0.5)  # Minimum 2 minutes, or 1.5 seconds per account
 
                 try:
                     for future in as_completed(futures, timeout=timeout_duration):
