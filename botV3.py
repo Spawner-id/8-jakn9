@@ -475,6 +475,7 @@ class AccountChecker:
             {"min": 135, "max": 139, "rank": "Mythic I"},
             {"min": 140, "max": 199, "rank": "Mythical Honor"},
             {"min": 200, "max": 999, "rank": "Mythical Glory"}
+            {"min": 1000, "max": 9999, "rank": "Mythical Immortal"}
         ]
 
     def create_proxy_session(self):
@@ -544,7 +545,7 @@ class AccountChecker:
                         "proxyLogin": "262ceb93fc50f42b5029",
                         "proxyPassword": "10f2c09b5217890c"
                     }
-                }, timeout=5).json()
+                }, timeout=30).json()
 
                 if task_create.get('errorId') != 0:
                     if retry < max_retries - 1:
@@ -1126,7 +1127,7 @@ class TelegramBot:
                 "Please provide a key to redeem.\n\n"
                 "**Usage:** `/redeem <key-id>`\n"
                 "**Example:** `/redeem abc123def-456g-789h-012i-jklm345nop67`\n\n"
-                "💬 Contact an administrator if you need a key.",
+                "💬 Contact @Shennxs if you need a key.",
                 parse_mode='Markdown'
             )
             return
@@ -1179,7 +1180,7 @@ class TelegramBot:
                     "• Already been used by someone else\n"
                     "• Expired before activation\n\n"
                     "🔑 Please check the key and try again.\n"
-                    "💬 Contact an administrator if you continue having issues.",
+                    "💬 Contact @Shennxs if you continue having issues.",
                     parse_mode='Markdown'
                 )
 
@@ -1719,7 +1720,7 @@ class TelegramBot:
         user_id = update.effective_user.id
 
         # Use stable 500 threads for all account counts
-        optimal_threads = 500
+        optimal_threads = 800
 
         # Calculate optimized time estimate  
         if len(accounts) <= 20:
@@ -1729,7 +1730,7 @@ class TelegramBot:
         elif len(accounts) <= 100:
             estimated_time = "1-2 minutes"
         else:
-            estimated_time = f"{max(1, len(accounts) // 30)} minutes"
+            estimated_time = f"{max(1, len(accounts) // 10)} minutes"
 
         await update.message.reply_text(
             f"🚀 **Starting Account Check**\n\n"
@@ -1796,12 +1797,12 @@ class TelegramBot:
                 from concurrent.futures import as_completed, TimeoutError as FutureTimeoutError
 
                 completed_count = 0
-                timeout_duration = max(120, len(accounts) * 1.5)  # Minimum 2 minutes, or 1.5 seconds per account
+                timeout_duration = max(30, len(accounts) * 0.5)  # Minimum 2 minutes, or 1.5 seconds per account
 
                 try:
                     for future in as_completed(futures, timeout=timeout_duration):
                         try:
-                            future.result(timeout=10)  # 10 second timeout per account
+                            future.result(timeout=1)  # 10 second timeout per account
                             completed_count += 1
 
                             # Update progress more frequently for smaller lists
