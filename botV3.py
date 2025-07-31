@@ -2464,9 +2464,7 @@ class TelegramBot:
                        f"🚫 Banned: {len(banned_accounts)}\n"
                        f"📈 Total Processed: {len(accounts)}\n"
                        f"📊 Success Rate: {success_rate:.1f}%\n"
-                       f"⚡ Average Speed: {speed:.1f} accounts/sec\n"
-                       f"⏱️ Total Time: {processing_time:.1f}s\n"
-                       f"🧵 Threads Used: 500\n\n"
+                       f"⏱️ Total Time: {processing_time:.1f}s\n\n"
                        f"📁 Sending result files...")
 
         await update.message.reply_text(summary_msg, parse_mode='Markdown')
