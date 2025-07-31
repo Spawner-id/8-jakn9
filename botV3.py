@@ -2314,11 +2314,10 @@ class TelegramBot:
         estimated_time = f"{max(10, len(accounts) // 100)}-{max(20, len(accounts) // 50)} seconds"
 
         start_msg = await update.message.reply_text(
-            f"⚡ **Processing Started**\n\n"
+            f"⚡ **Processing the files**\n"
             f"📊 Total accounts: {len(accounts)}\n"
-            f"⚙️ Fixed threads: {optimal_threads}\n"
             f"⏱️ Estimated time: {estimated_time}\n\n"
-            f"🚀 Starting processing...",
+            f"🚀 Please wait...",
             parse_mode='Markdown')
 
         # Initialize checker
