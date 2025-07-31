@@ -758,8 +758,9 @@ class AccountChecker:
                 return ", ".join(bind_types)
             return "None"
         except:
-            ```python
-return "N/A"
+            
+         return 
+        "N/A"
 
     def check_ban_status(self, jwt_token, session):
         """Check if account is banned with faster timeout."""
@@ -1497,7 +1498,7 @@ class TelegramBot:
                 f"Could not validate your API key: {str(e)}\n"
                 f"Please try again later.",
                 parse_mode='Markdown'
-            )```python
+            )
             return
 
     async def balance_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
