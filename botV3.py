@@ -2309,16 +2309,16 @@ class TelegramBot:
         """Process accounts using optimized processing with fixed 1000 threads."""
         user_id = update.effective_user.id
 
-        # Fixed thread count for maximum performance
-        optimal_threads = 1000
-        estimated_time = f"{max(5, len(accounts) // 200)}-{max(10, len(accounts) // 100)} seconds"
+        # Fixed thread count for accurate processing
+        optimal_threads = 500
+        estimated_time = f"{max(10, len(accounts) // 100)}-{max(20, len(accounts) // 50)} seconds"
 
         start_msg = await update.message.reply_text(
-            f"⚡ **Ultra-Fast Processing Started**\n\n"
+            f"⚡ **Processing Started**\n\n"
             f"📊 Total accounts: {len(accounts)}\n"
             f"⚙️ Fixed threads: {optimal_threads}\n"
             f"⏱️ Estimated time: {estimated_time}\n\n"
-            f"🚀 Starting instant processing (no pre-solving)...",
+            f"🚀 Starting processing...",
             parse_mode='Markdown')
 
         # Initialize checker
@@ -2363,10 +2363,10 @@ class TelegramBot:
                     invalid_accounts.append(f"{email}:{password}")
                     processed += 1
 
-        # Ultra-fast processing with fixed 1000 threads
+        # Processing with fixed 500 threads for accuracy
         with ThreadPoolExecutor(
                 max_workers=optimal_threads,
-                thread_name_prefix="UltraFastChecker") as executor:
+                thread_name_prefix="AccurateChecker") as executor:
             all_futures = [
                 executor.submit(check_account_instant, account)
                 for account in accounts
@@ -2376,33 +2376,34 @@ class TelegramBot:
             completed = 0
             last_update_time = start_time
 
-            # Aggressive timeout for maximum speed
-            timeout_per_account = 1.5
-            total_timeout = max(15, len(accounts) * timeout_per_account)
+            # Balanced timeout for accuracy
+            timeout_per_account = 2.0
+            total_timeout = max(30, len(accounts) * timeout_per_account)
 
             try:
                 for future in as_completed(all_futures, timeout=total_timeout):
                     try:
-                        future.result(timeout=1.0)
+                        future.result(timeout=1.5)
                         completed += 1
 
-                        # Update every 10 accounts or every 2 seconds
+                        # Live progress updates every account or every 1 second
                         current_time = time.time()
-                        if (completed % 10
+                        if (completed % 1
                                 == 0) or (current_time - last_update_time
-                                          >= 2) or (completed
+                                          >= 1.0) or (completed
                                                     == len(accounts)):
                             last_update_time = current_time
                             elapsed = current_time - start_time
 
                             with results_lock:
+                                progress_percentage = (processed / len(accounts)) * 100
+                                
                                 progress_msg = (
-                                    f"⚡ **Ultra-Fast Progress: {processed}/{len(accounts)} ({processed/len(accounts)*100:.1f}%)**\n\n"
+                                    f"⚡️ Live Progress: {processed}/{len(accounts)} ({progress_percentage:.1f}%)\n\n"
                                     f"🟢 Valid: {len(valid_accounts)}\n"
                                     f"🔴 Invalid: {len(invalid_accounts)}\n"
                                     f"🟡 Banned: {len(banned_accounts)}\n"
-                                    f"⏱️ Elapsed: {elapsed:.1f}s\n"
-                                    f"🚀 Speed: {processed/elapsed:.1f} accounts/sec"
+                                    f"⏱️ Elapsed: {elapsed:.1f}s"
                                 )
 
                             try:
@@ -2457,15 +2458,16 @@ class TelegramBot:
                         len(accounts)) * 100 if accounts else 0
         speed = len(accounts) / processing_time if processing_time > 0 else 0
 
-        summary_msg = (f"✅ **Ultra-Fast Processing Complete!**\n\n"
-                       f"📊 **Results Summary:**\n"
-                       f"🟢 Valid: {len(valid_accounts)}\n"
-                       f"🔴 Invalid: {len(invalid_accounts)}\n"
-                       f"🟡 Banned: {len(banned_accounts)}\n"
-                       f"📈 Total: {len(accounts)}\n"
+        summary_msg = (f"✅ **Processing Complete!**\n\n"
+                       f"📊 **Final Results:**\n"
+                       f"✅ Valid: {len(valid_accounts)}\n"
+                       f"❌ Invalid: {len(invalid_accounts)}\n"
+                       f"🚫 Banned: {len(banned_accounts)}\n"
+                       f"📈 Total Processed: {len(accounts)}\n"
                        f"📊 Success Rate: {success_rate:.1f}%\n"
-                       f"⚡ Processing Speed: {speed:.1f} accounts/sec\n"
-                       f"⏱️ Total Time: {processing_time:.1f}s\n\n"
+                       f"⚡ Average Speed: {speed:.1f} accounts/sec\n"
+                       f"⏱️ Total Time: {processing_time:.1f}s\n"
+                       f"🧵 Threads Used: 500\n\n"
                        f"📁 Sending result files...")
 
         await update.message.reply_text(summary_msg, parse_mode='Markdown')
