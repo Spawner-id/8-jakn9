@@ -2381,13 +2381,28 @@ class TelegramBot:
         # Instant processing start with controlled threading
         async def process_with_live_updates():
             with ThreadPoolExecutor(max_workers=optimal_threads, thread_name_prefix="AccurateChecker") as executor:
+                # Show initial progress immediately
+                initial_progress_msg = (
+                    f"⚡️ Live Progress: 0/{len(accounts)} (0.0%)\n\n"
+                    f"🟢 Valid: 0\n"
+                    f"🔴 Invalid: 0\n"
+                    f"🟡 Banned: 0\n"
+                    f"⏱️ Elapsed: 0.0s"
+                )
+                
+                try:
+                    await context.bot.edit_message_text(
+                        chat_id=update.effective_chat.id,
+                        message_id=start_msg.message_id,
+                        text=initial_progress_msg,
+                        parse_mode='Markdown')
+                except:
+                    pass
+                
                 # Submit all jobs immediately
                 all_futures = [executor.submit(check_account_accurate, account) for account in accounts]
                 
-                # Start progress updates immediately
-                await asyncio.sleep(0.1)  # Tiny delay to ensure first update shows
-                
-                # Progress tracking loop - runs in parallel with processing
+                # Progress tracking loop starts immediately - runs in parallel with processing
                 while processed < len(accounts):
                     current_time = time.time()
                     elapsed = current_time - start_time
@@ -2412,8 +2427,8 @@ class TelegramBot:
                     except:
                         pass
 
-                    # Update every 0.5 seconds for smooth progress
-                    await asyncio.sleep(0.5)
+                    # Update every 0.3 seconds for immediate responsiveness
+                    await asyncio.sleep(0.3)
                 
                 # Wait for all futures to complete with proper timeout
                 from concurrent.futures import as_completed
