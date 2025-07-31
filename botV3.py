@@ -45,6 +45,11 @@ class BotConfig:
     BOT_TOKEN = os.getenv('BOT_TOKEN',
                           '8342752247:AAGV9CmGu-qd7wCdclWNSbO_qmzA7hgfYmk')
 
+    # Webhook settings
+    WEBHOOK_URL = os.getenv('WEBHOOK_URL', '')  # Will be set automatically if empty
+    WEBHOOK_PATH = '/webhook'
+    WEBHOOK_PORT = int(os.getenv('PORT', '5000'))
+
     # Admin settings
     ADMIN_IDS = []
     admin_ids_str = os.getenv('ADMIN_IDS', '7410975556')
@@ -1424,39 +1429,57 @@ class TelegramBot:
         self.web_app = None
         self.web_runner = None
 
-    async def setup_web_server(self):
-        """Set up a simple web server for health checks."""
+    async def setup_webhook_server(self):
+        """Set up webhook server with health checks."""
+
+        async def webhook_handler(request):
+            """Handle incoming webhook requests from Telegram."""
+            try:
+                # Get the raw body
+                body = await request.read()
+                
+                # Parse the update
+                update_dict = json.loads(body.decode('utf-8'))
+                update = Update.de_json(update_dict, self.application.bot)
+                
+                # Process the update
+                if update:
+                    await self.application.process_update(update)
+                
+                return web.Response(status=200)
+            except Exception as e:
+                logger.error(f"Error processing webhook: {e}")
+                return web.Response(status=500)
 
         async def health_check(request):
             return web.json_response({
                 "status": "ok",
-                "service": "telegram-bot",
+                "service": "telegram-bot-webhook",
                 "timestamp": datetime.now().isoformat()
             })
 
         async def root_handler(request):
             return web.json_response({
-                "message": "Telegram Bot is running",
+                "message": "Telegram Bot Webhook is running",
                 "status": "active",
+                "webhook_path": BotConfig.WEBHOOK_PATH,
                 "timestamp": datetime.now().isoformat()
             })
 
         self.web_app = web.Application()
+        self.web_app.router.add_post(BotConfig.WEBHOOK_PATH, webhook_handler)
         self.web_app.router.add_get('/', root_handler)
         self.web_app.router.add_get('/health', health_check)
 
         # Start web server
         self.web_runner = web_runner.AppRunner(self.web_app)
         await self.web_runner.setup()
-        site = web_runner.TCPSite(self.web_runner, '0.0.0.0', 5000)
+        site = web_runner.TCPSite(self.web_runner, '0.0.0.0', BotConfig.WEBHOOK_PORT)
         await site.start()
-        logger.info("Web server started on port 5000")
+        logger.info(f"Webhook server started on port {BotConfig.WEBHOOK_PORT}")
 
     async def start(self):
-        """Start the bot and set up handlers."""
-        # Start web server first
-        await self.setup_web_server()
-
+        """Start the bot with webhook setup."""
         # Build application
         self.application = Application.builder().token(self.token).build()
 
@@ -1496,12 +1519,46 @@ class TelegramBot:
         self.application.add_handler(
             MessageHandler(filters.Document.ALL, self.handle_document))
 
-        # Start the bot first
+        # Initialize the application
         await self.application.initialize()
         await self.application.start()
-        await self.application.updater.start_polling()
 
-        logger.info("Bot is running...")
+        # Set up webhook server
+        await self.setup_webhook_server()
+
+        # Set webhook URL
+        webhook_url = BotConfig.WEBHOOK_URL
+        if not webhook_url:
+            # Auto-detect webhook URL from environment
+            if os.getenv('REPL_URL'):
+                # Replit environment
+                repl_url = os.getenv('REPL_URL', f'https://{os.getenv("REPL_SLUG", "")}.{os.getenv("REPL_OWNER", "")}.replit.app')
+                webhook_url = f"{repl_url}{BotConfig.WEBHOOK_PATH}"
+            elif os.getenv('RENDER_SERVICE_NAME'):
+                # Render.com environment
+                render_url = f"https://{os.getenv('RENDER_SERVICE_NAME')}.onrender.com"
+                webhook_url = f"{render_url}{BotConfig.WEBHOOK_PATH}"
+            else:
+                # Fallback - try to detect from common environment variables
+                external_url = os.getenv('EXTERNAL_URL') or os.getenv('PUBLIC_URL') or os.getenv('APP_URL')
+                if external_url:
+                    webhook_url = f"{external_url.rstrip('/')}{BotConfig.WEBHOOK_PATH}"
+                else:
+                    logger.error("Could not auto-detect webhook URL. Please set WEBHOOK_URL environment variable.")
+                    return
+        
+        try:
+            await self.application.bot.set_webhook(
+                url=webhook_url,
+                drop_pending_updates=True,
+                max_connections=100
+            )
+            logger.info(f"Webhook set to: {webhook_url}")
+        except Exception as e:
+            logger.error(f"Failed to set webhook: {e}")
+            return
+
+        logger.info("Bot is running with webhook...")
 
         # Set up bot commands and menu (optional, non-blocking)
         asyncio.create_task(self.setup_bot_commands())
@@ -1512,6 +1569,13 @@ class TelegramBot:
         except KeyboardInterrupt:
             logger.info("Shutting down bot...")
         finally:
+            # Clean up webhook
+            try:
+                await self.application.bot.delete_webhook()
+                logger.info("Webhook deleted")
+            except:
+                pass
+            
             await self.application.stop()
             if self.web_runner:
                 await self.web_runner.cleanup()
