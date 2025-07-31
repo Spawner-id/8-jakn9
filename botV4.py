@@ -555,8 +555,8 @@ class AccountChecker:
                 task_id = task_create['taskId']
 
                 # Optimized timing - check more frequently with shorter total time
-                for i in range(20):  # Reduced checks but faster intervals
-                    time.sleep(0.7)  # Faster check interval
+                for i in range(10):  # Reduced checks but faster intervals
+                    time.sleep(0.5)  # Faster check interval
 
                     task_result = requests.post('https://api.capmonster.cloud/getTaskResult', json={
                         "clientKey": self.capmonster_api_key,
